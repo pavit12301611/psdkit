@@ -425,7 +425,7 @@ export const INTERNET_IMPLS = {
   /* 12 ── Meta generator */
   'meta-generator': {
     fields: [
-      { id: 'title', label: 'Page title', type: 'text', default: 'PSDKIT Pro — 150+ Free Online Tools' },
+      { id: 'title', label: 'Page title', type: 'text', default: 'PSDKIT Pro — 175 Free Online Tools' },
       { id: 'desc', label: 'Meta description', type: 'textarea', rows: 3, default: 'Free daily, internet, essential and coding tools that run in your browser.' },
       { id: 'url', label: 'Canonical URL', type: 'text', default: 'https://psdkit.vercel.app' },
       { id: 'img', label: 'Social image URL', type: 'text', default: 'https://psdkit.vercel.app/logo.png' },
@@ -894,6 +894,45 @@ export const INTERNET_IMPLS = {
           ],
           text: `HTML document: ${fmt.bytes(htmlSize)}\nImages: ${imgs}\nExternal scripts: ${scripts}\nStylesheets: ${styles}\nIframes: ${iframes}\nFetch time (via ${r.viaProxy ? 'relay' : 'direct'}): ${ms} ms\n\nTip: images and scripts usually dominate — compress images and defer non-critical scripts.`,
           note: 'Only the HTML shell is measured here. Browser dev tools (Network tab) shows the full page weight with all assets.',
+        };
+      } catch (e) { return e.message; }
+    },
+  },
+
+  'seo-mini-audit': {
+    fields: [{ id: 'url', label: 'URL', type: 'text', default: 'https://example.com' }],
+    live: false,
+    buttonLabel: 'Run audit',
+    async compute(v) {
+      const url = normalizeUrl(v.url);
+      if (!url) return 'Enter a valid URL.';
+      try {
+        const res = await fetchText(url, { timeout: 20000 });
+        const doc = new DOMParser().parseFromString(res.text, 'text/html');
+        const title = doc.querySelector('title')?.textContent?.trim() || '';
+        const desc = doc.querySelector('meta[name="description"]')?.getAttribute('content')?.trim() || '';
+        const h1 = doc.querySelector('h1')?.textContent?.trim() || '';
+        const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim() || '';
+        const ogDesc = doc.querySelector('meta[property="og:description"]')?.getAttribute('content')?.trim() || '';
+        let score = 0;
+        if (title.length >= 20 && title.length <= 65) score += 30;
+        if (desc.length >= 70 && desc.length <= 160) score += 30;
+        if (h1) score += 20;
+        if (ogTitle && ogDesc) score += 20;
+        return {
+          title: `SEO mini-audit — ${new URL(url).hostname}`,
+          stats: [
+            { label: 'Score', value: `${score}/100` },
+            { label: 'Title', value: title ? `${title.length} chars` : 'Missing' },
+            { label: 'Meta description', value: desc ? `${desc.length} chars` : 'Missing' },
+            { label: 'H1', value: h1 ? 'Present' : 'Missing' },
+          ],
+          html: `<div class="term-row"><div class="term-name">Title</div><div class="term-mean">${title || 'Missing'}</div></div>
+                 <div class="term-row"><div class="term-name">Meta description</div><div class="term-mean">${desc || 'Missing'}</div></div>
+                 <div class="term-row"><div class="term-name">H1</div><div class="term-mean">${h1 || 'Missing'}</div></div>
+                 <div class="term-row"><div class="term-name">OG title</div><div class="term-mean">${ogTitle || 'Missing'}</div></div>
+                 <div class="term-row"><div class="term-name">OG description</div><div class="term-mean">${ogDesc || 'Missing'}</div></div>`,
+          text: `Score: ${score}/100\nTitle: ${title || 'Missing'}\nMeta description: ${desc || 'Missing'}\nH1: ${h1 || 'Missing'}\nOG title: ${ogTitle || 'Missing'}\nOG description: ${ogDesc || 'Missing'}`,
         };
       } catch (e) { return e.message; }
     },
