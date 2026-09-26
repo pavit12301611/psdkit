@@ -471,6 +471,79 @@ const DS_SECTIONS = [
   ] },
 ];
 
+const BRAILLE_MAP = {
+  a: '⠁', b: '⠃', c: '⠉', d: '⠙', e: '⠑', f: '⠋', g: '⠛', h: '⠓', i: '⠊', j: '⠚',
+  k: '⠅', l: '⠇', m: '⠍', n: '⠝', o: '⠕', p: '⠏', q: '⠟', r: '⠗', s: '⠎', t: '⠞',
+  u: '⠥', v: '⠧', w: '⠺', x: '⠭', y: '⠽', z: '⠵', ' ': ' ', '.': '⠲', ',': '⠂', '?': '⠦', '!': '⠖', '-': '⠤', ':': '⠒', ';': '⠆', '/': '⠌', '@': '⠈⠁', '#': '⠼',
+};
+const BRAILLE_REVERSE = Object.fromEntries(Object.entries(BRAILLE_MAP).map(([k, v]) => [v, k]));
+const GITIGNORE_PRESETS = {
+  Node: ['node_modules/', 'dist/', '.env', '.DS_Store', '*.log', 'coverage/'],
+  Python: ['__pycache__/', '*.pyc', '.venv/', '.pytest_cache/', '.env', '.mypy_cache/'],
+  Java: ['target/', '*.class', '.idea/', '.project', '.settings/'],
+  React: ['node_modules/', 'dist/', 'build/', '.env.local', '.DS_Store'],
+  Go: ['bin/', 'pkg/', '*.test', '.env'],
+  Rust: ['target/', 'Cargo.lock', '.env'],
+  macOS: ['.DS_Store', '._*', '.Spotlight-V100', '.Trashes'],
+};
+const HTTP_METHOD_HEADER_SECTIONS = [
+  { title: 'Methods', rows: [['GET', 'Fetch data without changing server state.'], ['POST', 'Create or submit data.'], ['PUT', 'Replace a resource.'], ['PATCH', 'Partially update a resource.'], ['DELETE', 'Remove a resource.'], ['HEAD', 'Fetch headers only.'], ['OPTIONS', 'Discover allowed methods / CORS info.']] },
+  { title: 'Common headers', rows: [['Content-Type', 'Describes the request or response body format.'], ['Accept', 'Tells the server which response formats are okay.'], ['Authorization', 'Sends credentials such as Bearer tokens.'], ['Cache-Control', 'Controls caching in browsers and CDNs.'], ['User-Agent', 'Identifies the client making the request.'], ['Origin', 'Shows the browser origin for CORS checks.'], ['Set-Cookie', 'Tells the browser to store a cookie.'], ['ETag', 'A response version tag for efficient caching.']] },
+];
+const DESIGN_PATTERN_SECTIONS = [
+  { title: 'Creational', rows: [['Factory', 'Create objects without exposing the exact class.'], ['Builder', 'Construct complex objects step by step.'], ['Singleton', 'Exactly one shared instance — use sparingly.'], ['Prototype', 'Clone existing objects quickly.']] },
+  { title: 'Structural', rows: [['Adapter', 'Make incompatible interfaces work together.'], ['Decorator', 'Add behaviour without changing the original class.'], ['Facade', 'Provide one simple interface over many moving parts.'], ['Proxy', 'Control access to another object.']] },
+  { title: 'Behavioral', rows: [['Observer', 'Notify subscribers when state changes.'], ['Strategy', 'Swap algorithms at runtime behind one interface.'], ['Command', 'Wrap actions as objects so they can be queued/undone.'], ['State', 'Change behaviour when internal state changes.'], ['Template Method', 'A fixed algorithm with overridable steps.']] },
+];
+const MARKDOWN_CHEATSHEET_SECTIONS = [
+  { title: 'Text', rows: [['# Heading 1', 'Top-level heading'], ['## Heading 2', 'Second-level heading'], ['**bold**', 'Bold text'], ['*italic*', 'Italic text'], ['`inline code`', 'Inline code styling']] },
+  { title: 'Lists & quotes', rows: [['- item', 'Bulleted list item'], ['1. item', 'Ordered list item'], ['> quote', 'Blockquote'], ['---', 'Horizontal rule']] },
+  { title: 'Links & media', rows: [['[label](url)', 'Link syntax'], ['![alt](image.png)', 'Image syntax'], ['[x] task', 'GitHub task list item']] },
+  { title: 'Tables & code blocks', rows: [['```js', 'Start a fenced code block'], ['| A | B |', 'Basic table row'], ['| --- | --- |', 'Table header separator']] },
+];
+
+function tsType(value, name = 'Root') {
+  if (Array.isArray(value)) {
+    if (!value.length) return 'unknown[]';
+    return `${tsType(value[0], name)}[]`;
+  }
+  if (value && typeof value === 'object') {
+    const lines = Object.entries(value).map(([key, val]) => `  ${key}: ${tsType(val, key)};`);
+    return `\n{\n${lines.join('\n')}\n}`;
+  }
+  if (value === null) return 'null';
+  return typeof value;
+}
+
+function nextCronRuns(expr, count = 5) {
+  const parts = expr.trim().split(/\s+/);
+  if (parts.length !== 5) throw new Error('Use 5 cron parts: minute hour day month weekday');
+  const [min, hour, day, month, weekday] = parts;
+  const parse = (value, current, minVal, maxVal) => {
+    if (value === '*') return true;
+    if (/^\*\/(\d+)$/.test(value)) return current % Number(RegExp.$1) === 0;
+    return value.split(',').some((piece) => {
+      if (/^(\d+)-(\d+)$/.test(piece)) return current >= Number(RegExp.$1) && current <= Number(RegExp.$2);
+      return current === Number(piece);
+    });
+  };
+  const now = new Date();
+  now.setSeconds(0, 0);
+  const out = [];
+  const cursor = new Date(now);
+  for (let i = 0; i < 50000 && out.length < count; i++) {
+    cursor.setMinutes(cursor.getMinutes() + 1);
+    if (
+      parse(min, cursor.getMinutes(), 0, 59) &&
+      parse(hour, cursor.getHours(), 0, 23) &&
+      parse(day, cursor.getDate(), 1, 31) &&
+      parse(month, cursor.getMonth() + 1, 1, 12) &&
+      parse(weekday, cursor.getDay(), 0, 6)
+    ) out.push(new Date(cursor));
+  }
+  return out;
+}
+
 /* ──────────────────────── TOOL DEFINITIONS ──────────────────────── */
 export const CODING_IMPLS = {
 
@@ -1339,7 +1412,7 @@ export const CODING_IMPLS = {
   /* 25 ── Slug */
   'slug-gen': {
     fields: [
-      { id: 'text', label: 'Title', type: 'textarea', rows: 3, default: 'PSDKIT Pro: 150+ Free Tools for Everyone!' },
+      { id: 'text', label: 'Title', type: 'textarea', rows: 3, default: 'PSDKIT Pro: 175 Free Tools for Everyone!' },
     ],
     compute(v) {
       const t = v.text || '';
@@ -1956,4 +2029,177 @@ export const CODING_IMPLS = {
       }
     },
   },
+
+  'csv-viewer-editor': {
+    mount(container) {
+      let rows = [];
+      let headers = [];
+      const input = el('textarea.textarea', { rows: 8, placeholder: 'name,email\nAda,ada@example.com', value: 'name,email\nAda,ada@example.com\nLinus,linus@example.com' });
+      const table = el('div');
+      const parseCsv = (text) => text.trim().split(/\r?\n/).filter(Boolean).map((line) => line.split(',').map((cell) => cell.trim()));
+      const toCsv = (data) => data.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const render = () => {
+        const parsed = parseCsv(input.value || '');
+        headers = parsed[0] || [];
+        rows = parsed.slice(1);
+        table.innerHTML = '';
+        if (!headers.length) return;
+        const tbl = el('table', { class: 'mini-table' });
+        tbl.append(el('thead', el('tr', ...headers.map((head) => el('th', { text: head })))));
+        const tbody = el('tbody');
+        rows.forEach((row, rowIndex) => {
+          tbody.append(el('tr', ...headers.map((_, colIndex) => {
+            const cell = el('input.input', { value: row[colIndex] || '', style: { minWidth: '120px' } });
+            cell.addEventListener('input', () => { rows[rowIndex][colIndex] = cell.value; });
+            return el('td', cell);
+          })));
+        });
+        tbl.append(tbody);
+        table.append(tbl);
+      };
+      container.append(
+        el('div.field', el('label.field-label', { text: 'CSV input' }), input),
+        el('div.tool-actions',
+          el('button.btn.btn-accent', { html: `${icon('database', 16)} Render table`, onclick: render }),
+          el('button.btn.btn-soft', { html: `${icon('download', 16)} Export CSV`, onclick: () => downloadFile('table.csv', toCsv([headers, ...rows]), 'text/csv') }),
+          el('button.btn.btn-soft', { html: `${icon('copy', 16)} Copy JSON`, onclick: () => copyText(JSON.stringify(rows.map((row) => Object.fromEntries(headers.map((head, index) => [head, row[index] || '']))), null, 2)) }),
+        ),
+        el('div.mt-3', table),
+      );
+      render();
+    },
+  },
+
+  'key-code-detector': {
+    mount(container) {
+      const out = el('div.stat-grid');
+      const pad = el('div.canvas-stage', { tabIndex: 0, style: { padding: '40px', minHeight: '180px', flexDirection: 'column', gap: '8px' }, html: `<strong>Press any key</strong><div class="field-hint">Focus this area and start typing.</div>` });
+      const render = (event) => {
+        out.innerHTML = '';
+        [['key', event.key], ['code', event.code], ['keyCode', event.keyCode], ['modifiers', `${event.ctrlKey ? 'Ctrl ' : ''}${event.shiftKey ? 'Shift ' : ''}${event.altKey ? 'Alt ' : ''}${event.metaKey ? 'Meta' : ''}`.trim() || 'None']]
+          .forEach(([label, value]) => out.append(el('div.stat', el('div.k', { text: label }), el('div.v', { text: String(value) }))));
+      };
+      pad.addEventListener('keydown', (event) => { event.preventDefault(); render(event); });
+      container.append(pad, el('div.mt-2', out));
+    },
+  },
+
+  'braille-translator': {
+    fields: [{ id: 'text', label: 'Text or Braille', type: 'textarea', rows: 5, default: 'hello world' }],
+    compute(v) {
+      const text = String(v.text || '');
+      const looksBraille = /[⠁-⣿]/.test(text);
+      if (looksBraille) {
+        const translated = [...text].map((char) => BRAILLE_REVERSE[char] ?? char).join('');
+        return { title: 'Braille → text', text: translated, copy: translated };
+      }
+      const braille = text.toLowerCase().split('').map((char) => BRAILLE_MAP[char] ?? char).join('');
+      return { title: 'Text → Braille', text: braille, copy: braille };
+    },
+  },
+
+  'regex-library': {
+    mount(container) {
+      const sections = [
+        ['Email', '/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/'],
+        ['Phone (basic)', '/^[0-9+()\\-\\s]{7,}$/'],
+        ['URL', '/^(https?:\\/\\/)?([\\w-]+\\.)+[\\w-]{2,}(\\/\\S*)?$/i'],
+        ['Date YYYY-MM-DD', '/^\\d{4}-\\d{2}-\\d{2}$/'],
+        ['Hex colour', '/^#?(?:[0-9a-fA-F]{3}){1,2}$/'],
+        ['Strong password', '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$/'],
+      ];
+      container.append(...sections.map(([name, pattern]) => el('div.card',
+        el('div.row-between', el('div', el('div', { style: { fontWeight: 800 }, text: name }), el('div.field-hint', { text: pattern })), el('div.row',
+          el('button.copy-btn', { html: `${icon('copy', 14)} Copy`, onclick: () => copyText(pattern) }),
+          el('a.copy-btn', { href: '#/tool/regex-tester', text: 'Test it' }),
+        )),
+      )));
+    },
+  },
+
+  'cron-next-run': {
+    fields: [{ id: 'expr', label: 'Cron expression', type: 'text', default: '*/15 9-18 * * 1-5', hint: 'minute hour day month weekday' }],
+    compute(v) {
+      const runs = nextCronRuns(v.expr || '');
+      return {
+        title: 'Next runs',
+        html: runs.map((date) => `<div class="term-row"><div class="term-name">${date.toLocaleString()}</div><div class="term-mean">${date.toUTCString()}</div></div>`).join(''),
+        copy: runs.map((date) => date.toISOString()).join('\n'),
+      };
+    },
+  },
+
+  'json-to-ts': {
+    fields: [{ id: 'json', label: 'Sample JSON', type: 'textarea', rows: 8, default: '{\n  "id": 1,\n  "name": "Ada",\n  "active": true,\n  "tags": ["js"],\n  "profile": { "city": "Delhi" }\n}' }],
+    compute(v) {
+      const parsed = JSON.parse(v.json);
+      const body = tsType(parsed);
+      const out = `interface Root ${body}`;
+      return { title: 'TypeScript interface', text: out, copy: out };
+    },
+  },
+
+  'gitignore-generator': {
+    fields: [{ id: 'stack', label: 'Preset stacks (comma separated)', type: 'text', default: 'Node, macOS' }],
+    compute(v) {
+      const picks = v.stack.split(',').map((item) => item.trim()).filter(Boolean);
+      const lines = [...new Set(picks.flatMap((pick) => GITIGNORE_PRESETS[pick] || []))];
+      return { title: '.gitignore', text: lines.join('\n') || '# No preset matched', copy: lines.join('\n') || '# No preset matched' };
+    },
+  },
+
+  'packagejson-generator': {
+    fields: [
+      { id: 'name', label: 'Package name', type: 'text', default: 'psdkit-app', half: true },
+      { id: 'version', label: 'Version', type: 'text', default: '1.0.0', half: true },
+      { id: 'description', label: 'Description', type: 'text', default: 'A starter project generated by PSDKIT Pro' },
+      { id: 'entry', label: 'Main entry', type: 'text', default: 'index.js', half: true },
+      { id: 'license', label: 'License', type: 'text', default: 'MIT', half: true },
+    ],
+    compute(v) {
+      const pkg = {
+        name: v.name,
+        version: v.version,
+        description: v.description,
+        main: v.entry,
+        type: 'module',
+        scripts: { dev: 'node index.js', test: 'echo "Add tests"' },
+        license: v.license,
+      };
+      return { title: 'package.json', text: JSON.stringify(pkg, null, 2), copy: JSON.stringify(pkg, null, 2) };
+    },
+  },
+
+  'readme-generator': {
+    fields: [
+      { id: 'name', label: 'Project name', type: 'text', default: 'PSDKIT Project' },
+      { id: 'summary', label: 'Short summary', type: 'textarea', rows: 3, default: 'Describe what your project does and why it exists.' },
+      { id: 'install', label: 'Install command', type: 'text', default: 'npm install', half: true },
+      { id: 'run', label: 'Run command', type: 'text', default: 'npm run dev', half: true },
+    ],
+    compute(v) {
+      const out = `# ${v.name}\n\n${v.summary}\n\n## Features\n- Fast setup\n- Clear purpose\n- Easy to extend\n\n## Installation\n\n\`\`\`bash\n${v.install}\n\`\`\`\n\n## Usage\n\n\`\`\`bash\n${v.run}\n\`\`\`\n\n## License\nMIT`;
+      return { title: 'README.md', text: out, copy: out };
+    },
+  },
+
+  'linux-permissions': {
+    mount(container) {
+      const perms = ['owner', 'group', 'public'].map((role) => ({ role, r: el('input', { type: 'checkbox', checked: true }), w: el('input', { type: 'checkbox' }), x: el('input', { type: 'checkbox' }) }));
+      const out = el('div.stat-grid');
+      const render = () => {
+        const value = perms.map((set) => Number(set.r.checked) * 4 + Number(set.w.checked) * 2 + Number(set.x.checked)).join('');
+        const symbolic = perms.map((set) => `${set.r.checked ? 'r' : '-'}${set.w.checked ? 'w' : '-'}${set.x.checked ? 'x' : '-'}`).join('');
+        out.innerHTML = '';
+        [['chmod', value], ['symbolic', symbolic], ['command', `chmod ${value} file`]].forEach(([label, val]) => out.append(el('div.stat', el('div.k', { text: label }), el('div.v', { text: val, style: { fontSize: '18px' } }))));
+      };
+      container.append(...perms.map((set) => el('div.card', el('div', { style: { fontWeight: 800, marginBottom: '8px' }, text: set.role }), el('label.checkline', set.r, 'Read'), el('label.checkline', set.w, 'Write'), el('label.checkline', set.x, 'Execute'))), out);
+      container.querySelectorAll('input').forEach((input) => input.addEventListener('change', render));
+      render();
+    },
+  },
+
+  'http-methods-headers': { mount: referenceTool({ intro: 'A quick refresher on the HTTP methods and headers you use most often.', sections: HTTP_METHOD_HEADER_SECTIONS }) },
+  'design-patterns': { mount: referenceTool({ intro: 'Classic software design patterns and the problems they solve.', sections: DESIGN_PATTERN_SECTIONS }) },
+  'markdown-cheatsheet': { mount: referenceTool({ intro: 'Markdown syntax at a glance, with copy-ready examples.', sections: MARKDOWN_CHEATSHEET_SECTIONS }) },
 };
