@@ -1,7 +1,9 @@
 /* Home page — hero (CreativaX-inspired) + category showcase + popular tools + learn + community */
-import { el, toast } from '../ui.js';
+import { el } from '../ui.js';
 import { icon } from '../icons.js';
 import { CATEGORIES, TOOLS, toolsByCat, TOOL_MAP } from '../data/catalog.js';
+import { getRecentTools } from '../prefs.js';
+import { renderFeaturedCommunityGrid } from './community.js';
 
 const POPULAR = [
   'qr-generator', 'pdf-merge', 'password-gen', 'image-compress', 'age-calc',
@@ -47,13 +49,13 @@ export function renderHome(root) {
     el('div.hero-content',
       el('div.hero-left',
         el('div.hero-tag',
-          el('span', { text: '150+ tools' }),
+          el('span', { text: '175 tools' }),
           el('span', { text: 'no login' }),
           el('span', { text: 'free forever' }),
         ),
         el('h1.display.hero-h1', { html: 'Every Tool You<br><em>Need.</em>' }),
         el('p.hero-p', {
-          text: 'PSDKIT Pro packs 150+ practical tools for daily life, the internet and coding — plus guides, word meanings and an AI assistant that knows the site inside out. Built for pros, friendly for beginners.',
+          text: 'PSDKIT Pro packs 175 practical tools for daily life, the internet and coding — plus guides, word meanings, favourites and an AI assistant that knows the site inside out. Built for pros, friendly for beginners.',
         }),
         el('div.hero-ctas',
           el('a.btn.btn-primary.btn-lg', {
@@ -98,7 +100,7 @@ export function renderHome(root) {
         el('div.modal-video', modalVideo),
         el('p.text-muted.mt-2', {
           style: { fontSize: '14px', lineHeight: 1.7 },
-          text: '150 tools. Zero logins. Everything runs in your browser — calculators, PDF and image tools, internet lookups, coding playgrounds, dictionaries and an AI guide that points you to the right page.',
+          text: '175 tools. Zero logins. Everything runs in your browser — calculators, PDF and image tools, internet lookups, coding playgrounds, dictionaries and an AI guide that points you to the right page.',
         }),
         el('div.tool-actions', { style: { marginTop: '14px' } },
           el('a.btn.btn-accent', { href: '#/tools', onclick: closeModal, html: `Open the toolkit ${icon('arrowRight', 16)}` }),
@@ -121,6 +123,23 @@ export function renderHome(root) {
   document.addEventListener('keydown', onEsc);
   hero.querySelector('#watch-demo').addEventListener('click', openModal);
   modal.querySelector('#close-demo').addEventListener('click', closeModal);
+
+  const recentIds = getRecentTools();
+  const recentTools = recentIds.map((id) => TOOL_MAP[id]).filter(Boolean).slice(0, 8);
+  const recentSection = recentTools.length
+    ? el('section.section', { style: { paddingTop: '34px', paddingBottom: '10px' } },
+      el('div.wrap',
+        el('div.section-head', { style: { marginBottom: '18px' } },
+          el('div.eyebrow', { text: 'jump back in' }),
+          el('h2.display.h-section', { html: 'Pick up where you <em>left off</em>' }),
+        ),
+        el('div.wrap-gap-sm', ...recentTools.map((tool) => el('a.related-item', {
+          href: `#/tool/${tool.id}`,
+          html: `<div class="r-ico tile-sand">${icon(tool.icon, 15)}</div><span>${tool.name}</span>`,
+        }))),
+      ),
+    )
+    : null;
 
   /* ── CATEGORIES ── */
   const catSection = el('section.section#categories',
@@ -158,7 +177,7 @@ export function renderHome(root) {
           el('div.eyebrow', { text: 'most used this week' }),
           el('h2.display.h-section', { html: 'Popular <em>right now</em>' }),
         ),
-        el('a.btn.btn-soft', { href: '#/tools', html: `View all 150 ${icon('arrowRight', 15)}` }),
+        el('a.btn.btn-soft', { href: '#/tools', html: `View all 175 ${icon('arrowRight', 15)}` }),
       ),
       el('div.grid.grid-3', ...POPULAR.map((id) => toolCard(TOOL_MAP[id])).filter(Boolean)),
     ),
@@ -215,33 +234,34 @@ export function renderHome(root) {
   );
 
   /* ── COMMUNITY ── */
+  const communityGrid = el('div.grid.grid-3', el('div.skeleton', { style: { height: '180px' } }), el('div.skeleton', { style: { height: '180px' } }), el('div.skeleton', { style: { height: '180px' } }));
   const communitySection = el('section.section', { style: { paddingTop: 0 } },
     el('div.wrap',
       el('div.hero-mini',
         el('div.hm-deco'),
-        el('div.row-between', { style: { gap: '26px', position: 'relative' } },
-          el('div', { style: { maxWidth: '560px' } },
-            el('div.eyebrow', { text: 'open source spirit' }),
-            el('h2.display.h-section', { style: { margin: '14px 0' }, html: 'Built by us.<br><em>Built by you.</em>' }),
-            el('p.lede', {
-              text: 'Anyone can publish a tool: describe it, paste the code, and it goes live for everyone — like an open-source toolbox that keeps growing. Sign in with Google when you submit.',
-            }),
-            el('div.hero-ctas', { style: { marginTop: '22px' } },
-              el('a.btn.btn-primary', { href: '#/community', html: `Explore community tools ${icon('arrowRight', 16)}` }),
-              el('a.btn.btn-outline', { href: '#/community/add', html: `${icon('plus', 16)} Publish a tool` }),
+        el('div', { style: { position: 'relative' } },
+          el('div.row-between', { style: { gap: '26px', marginBottom: '24px' } },
+            el('div', { style: { maxWidth: '560px' } },
+              el('div.eyebrow', { text: 'open source spirit' }),
+              el('h2.display.h-section', { style: { margin: '14px 0' }, html: 'Built by us.<br><em>Built by you.</em>' }),
+              el('p.lede', { text: 'Anyone can publish a tool: describe it, paste the code, and it goes live for everyone — like an open-source toolbox that keeps growing. Sign in with Google when you submit.' }),
             ),
+            el('a.btn.btn-primary', { href: '#/community', html: `View all ${icon('arrowRight', 16)}` }),
           ),
-          el('div.col', { style: { minWidth: '220px', gap: '10px' } },
-            ...[['Tools published', '1,200+'], ['Creators', '400+'], ['Cost', '₹0 / $0 forever']].map(([k, v]) =>
-              el('div.stat', {
-                style: { background: 'rgba(255,255,255,0.5)', padding: '16px 20px' },
-                html: `<div class="k">${k}</div><div class="v">${v}</div>`,
-              })),
+          el('div.section-head', { style: { marginBottom: '18px' } },
+            el('div.eyebrow', { text: 'from the community' }),
+            el('h2.display', { style: { fontSize: 'clamp(24px,4vw,34px)' }, html: 'Fresh community <em>tools</em>' }),
+          ),
+          communityGrid,
+          el('div.hero-ctas', { style: { marginTop: '22px' } },
+            el('a.btn.btn-primary', { href: '#/community', html: `Explore community tools ${icon('arrowRight', 16)}` }),
+            el('a.btn.btn-outline', { href: '#/community/add', html: `${icon('plus', 16)} Publish a tool` }),
           ),
         ),
       ),
     ),
   );
 
-  root.append(hero, catSection, popularSection, stepsSection, learnSection, communitySection, modal);
+  root.append(hero, recentSection, catSection, popularSection, stepsSection, learnSection, communitySection, modal);
+  renderFeaturedCommunityGrid(communityGrid, 3);
 }
