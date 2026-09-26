@@ -1,173 +1,148 @@
-# PSDKIT Pro — 150+ Free Online Tools
+# PSDKIT Pro — 175 Free Online Tools
 
-**Every tool you need. No login. Free forever.**
+**Every tool you need. Calm design. No login required for the main toolkit.**
 
-PSDKIT Pro is a fast, pastel-calm toolkit website with **150 fully working tools** that run straight in the browser — built for tech-savvy users and beginners alike, with plain-English guides and an AI assistant that knows every page of the site.
+PSDKIT Pro is a Vite + vanilla JS toolkit site with **175 browser-based tools**, coding guides, a tech glossary, a floating AI assistant, Google sign-in for community publishing, favourites, recent history, a warm/dim theme toggle, Hindi UI support, and a moderated community toolbox.
 
-| Shelf | Count | Examples |
-|---|---|---|
-| 🟠 **Daily Tools** | 50 | Age calculator, BMI, EMI, currency converter, unit converters, timers, password generator, notes, todo list |
-| 🔵 **Internet Tools** | 25 | IP lookup, DNS lookup, speed test, HTTP headers, meta tag generator, WHOIS, CORS checker, API tester |
-| 🟢 **Essential Tools** | 25 | QR codes, PDF merge/split, image compressor, colour picker, voice/screen recorder, whiteboard |
-| 🟣 **Coding & Learn** | 50 | Code playground, formatters, regex tester, JWT decoder, git cheatsheets, dictionary, translator, thesaurus |
+## What’s inside
 
-Plus:
-- 📖 **Learning guides** for Python, JavaScript, TypeScript, Java, C/C++, Go, Rust, SQL, HTML & CSS, React, Node.js and Git — with word meanings explained
-- 📗 **Tech glossary** — 65+ tech words in plain English
-- 🤖 **PSDKIT AI assistant** (bottom-right) — answers naturally and links you to the right pages *of this site*
-- 🧰 **Community Toolbox** — anyone can publish a tool (name + description + code), like open source
-- 📱 Fully mobile-optimised · ⚡ No lag · 🔒 Privacy-first (files never leave your browser)
+| Area | Count | Highlights |
+|---|---:|---|
+| Daily tools | 56 | Age, BMI, GST, salary hike, number-to-words, leap year & zodiac, notes, todo, timers |
+| Internet tools | 26 | IP, DNS, headers, website status, UTM builder, page weight, SEO mini-audit |
+| Essential tools | 30 | QR tools, PDF merge/split/watermark/page numbers, image tools, palette extraction, voice/screen tools |
+| Coding & learn tools | 63 | Playground, formatters, regex, cron, JSON → TS, .gitignore, package.json, README generator, references |
 
----
+## Major product features
 
-## Quick start (local)
+- **Authentication & account UI**
+  - `#/signin` page with Firebase-aware Google sign-in
+  - smart popup → redirect fallback for mobile / blocked popups
+  - profile page with stats, your community tools, edit/delete controls
+  - navbar avatar menu and mobile drawer account state
+- **Personalisation**
+  - favourites on tool cards and tool detail pages
+  - recently used tools on home and tools pages
+  - typo-tolerant search, recent search chips, `/` and `Ctrl+K`
+- **Community toolbox**
+  - publish, edit, delete, rate, report
+  - trending sort by runs
+  - auto-hide after 3+ reports
+  - homepage live community picks with built-in fallback samples
+  - admin moderation page at `#/admin`
+- **AI assistant**
+  - local knowledge fallback always works even with no API keys
+  - optional OpenAI / Gemini upgrade through `/api/ai`
+  - voice input, new chat, conversation history, typewriter replies, feedback row
+  - internal links only — no external links in responses
+- **SEO / performance / PWA**
+  - dynamic route titles and descriptions
+  - JSON-LD for home, help and tool breadcrumbs
+  - generated sitemap + robots.txt
+  - installable PWA with service worker and generated icons
+- **UX / accessibility**
+  - real 404 page
+  - share row on tool pages
+  - keyboard shortcuts modal
+  - warm / dim theme
+  - scroll progress on guides + back-to-top button
+  - skip link, focus-visible styles, focus traps, reduced-motion support
+- **Localization**
+  - English / Hindi UI toggle via `src/data/i18n.js`
+
+## New tools added in this upgrade
+
+1. PDF Watermark  
+2. PDF Page Numbers  
+3. CSV Viewer & Editor  
+4. QR Batch Generator  
+5. Image Colour Extractor  
+6. Number to Words  
+7. GST Calculator  
+8. Salary Hike / Increment Calculator  
+9. vCard QR Generator  
+10. Key Code Detector  
+11. Fancy Text Generator  
+12. Braille Translator  
+13. Emoji Finder  
+14. Common Regex Library  
+15. Cron Next-Run Calculator  
+16. JSON → TypeScript Interface  
+17. .gitignore Generator  
+18. package.json Generator  
+19. README.md Generator  
+20. Linux Permissions Calculator  
+21. HTTP Methods & Headers Reference  
+22. Design Patterns Cheatsheet  
+23. Markdown Cheatsheet  
+24. SEO Mini-Audit  
+25. Leap Year & Zodiac Finder
+
+## Local development
 
 ```bash
-npm install
-npm run dev        # → http://localhost:5173
-npm run build      # production build in /dist
-npm run preview    # preview the production build
+npm ci
+npm run dev
+npm test
+npm run build
 ```
 
-## Tech stack
+## Environment variables
 
-- **Vite + vanilla JS (ES modules)** — zero framework overhead, instant loads, buttery on mobile
-- **Custom CSS design system** — warm cream palette (`#F5EFE6`), flat pastels, Plus Jakarta Sans + Instrument Serif
-- **Firebase** — Google sign-in + Firestore for the Community Toolbox (optional — site works fully without it)
-- **Vercel** — hosting + serverless `/api/ai` function for the AI assistant
-- Heavy libraries (qrcode, pdf-lib, pdf.js, js-beautify…) lazy-load **only when a tool opens**
+Copy `.env.example` to `.env` for local testing if needed. Keep real secrets out of git.
 
----
+### Server only
+- `OPENAI_API_KEY`
+- `GEMINI_API_KEY`
+- `AI_MODEL` (optional, defaults in code when blank)
 
-## 🚀 Deploy to Vercel & connect Firebase (step-by-step)
+### Client / public Firebase config
+- `VITE_FIREBASE_API_KEY`
+- `VITE_FIREBASE_AUTH_DOMAIN`
+- `VITE_FIREBASE_PROJECT_ID`
+- `VITE_FIREBASE_STORAGE_BUCKET`
+- `VITE_FIREBASE_MESSAGING_SENDER_ID`
+- `VITE_FIREBASE_APP_ID`
 
-### 1. Push to GitHub
+### Optional local deploy helper
+- `VERCEL_TOKEN`
 
-```bash
-git add .
-git commit -m "PSDKIT Pro"
-git push origin main
-```
+## Scripts
 
-### 2. Deploy on Vercel
-
-1. Go to [vercel.com](https://vercel.com) → **Add New → Project**
-2. Import your GitHub repo → Vercel auto-detects **Vite**
-3. Click **Deploy** — done, the site is live on `your-project.vercel.app`
-
-### 3. Add environment variables (Vercel)
-
-In your project: **Settings → Environment Variables** → add these (all optional but recommended):
-
-| Variable | Where it's used | Purpose |
-|---|---|---|
-| `VITE_FIREBASE_API_KEY` | Browser | Firebase web API key |
-| `VITE_FIREBASE_AUTH_DOMAIN` | Browser | e.g. `your-app.firebaseapp.com` |
-| `VITE_FIREBASE_PROJECT_ID` | Browser | e.g. `your-app` |
-| `VITE_FIREBASE_STORAGE_BUCKET` | Browser | e.g. `your-app.appspot.com` |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Browser | Numeric sender ID |
-| `VITE_FIREBASE_APP_ID` | Browser | Firebase app ID |
-| `OPENAI_API_KEY` | Server (secret) | Powers the AI assistant (GPT) |
-| `GEMINI_API_KEY` | Server (secret) | Alternative: Google Gemini |
-| `AI_MODEL` | Server (optional) | Default `gpt-4o-mini` (or e.g. `gemini-1.5-flash`) |
-
-> ⚠️ Client variables **must** start with `VITE_` so Vite can expose them. The server-side AI keys are **never** exposed to the browser.
-> After adding variables: **Deployments → ⋯ → Redeploy** so the build picks them up.
-
-### 4. Create the Firebase project
-
-1. Go to [console.firebase.google.com](https://console.firebase.google.com) → **Add project**
-2. **Build → Authentication → Get started → Sign-in method → Google → Enable**
-3. **Build → Firestore Database → Create database** (production mode)
-4. **Firestore → Rules** → paste the contents of [`firestore.rules`](./firestore.rules) → **Publish**
-5. **Project settings (⚙) → General → Your apps → Web (`</>`)** → register app `psdkit-pro` → copy the `firebaseConfig` values into the six `VITE_FIREBASE_*` variables above
-6. **Authentication → Settings → Authorized domains** → add:
-   - `your-project.vercel.app`
-   - your custom domain (if any)
-
-### 5. Configure the AI assistant (optional but recommended)
-
-- **OpenAI**: add `OPENAI_API_KEY` (from platform.openai.com) — recommended model `gpt-4o-mini`
-- **or Google Gemini**: add `GEMINI_API_KEY` (from aistudio.google.com)
-- Without any key the assistant still works — it uses the built-in knowledge engine that knows all 150 tools and pages.
-
-### 6. Custom domain (optional)
-
-Vercel → **Settings → Domains** → add your domain → follow the DNS instructions.
-
-### 7. Verify everything
-
-- [ ] Tools work without login on the live URL
-- [ ] Google sign-in works on your `.vercel.app` domain
-- [ ] Publishing a community tool appears in the Community Toolbox
-- [ ] The AI button (bottom right) answers and links to site pages
-- [ ] Mobile layout feels smooth on a phone
-
----
+- `npm run dev` — Vite dev server
+- `npm test` — jsdom smoke suite
+- `npm run build` — generates sitemap/robots then builds production assets
+- `npm run preview` — preview the production build
 
 ## Project structure
 
-```
-psdkit/
-├── api/ai.js              # Vercel function — AI assistant (OpenAI/Gemini)
-├── public/logo.png        # Site logo
-├── firestore.rules        # Firestore security rules
-├── index.html
-├── src/
-│   ├── main.js            # App shell: nav, footer, boot
-│   ├── router.js          # Hash router (#/tool/:id, #/learn/:id …)
-│   ├── ui.js              # DOM helpers, toasts, formatting
-│   ├── icons.js           # Inline SVG icon set (zero CDN)
-│   ├── firebase.js        # Google auth + Firestore (lazy, optional)
-│   ├── data/
-│   │   ├── catalog.js     # All 150 tool definitions (shared with AI)
-│   │   └── guides.js      # Coding guides + tech glossary content
-│   ├── tools/             # Tool implementations (150)
-│   │   ├── formkit.js     # Declarative calculator/converter engine
-│   │   ├── daily.js       # 50 daily tools
-│   │   ├── internet.js    # 25 internet tools
-│   │   ├── essentials.js  # 25 essential tools
-│   │   └── coding.js      # 50 coding & learn tools
-│   ├── pages/             # home, tools, learn, community, help
-│   ├── ai/                # chat UI + local knowledge engine
-│   └── styles/            # design system (cream / pastel theme)
-└── vercel.json
+```text
+api/ai.js                    AI endpoint with OpenAI/Gemini + safe fallback
+public/                      logo, PWA files, sitemap, robots
+scripts/gen-sitemap.mjs      sitemap generator
+scripts/smoke.mjs            smoke tests for tools + pages
+src/ai/                      chat UI + local knowledge brain
+src/data/catalog.js          all 175 tool records
+src/data/guides.js           guides + glossary
+src/data/i18n.js             EN / Hindi UI strings
+src/firebase.js              optional Firebase auth + Firestore helpers
+src/pages/                   home, tools, learn, community, help, signin, profile, admin, 404
+src/prefs.js                 favourites, theme, recent history, feedback
+src/seo.js                   dynamic meta tags + JSON-LD
+src/tools/                   tool implementations by shelf
 ```
 
-## Adding a new tool (for developers)
+## Deployment
 
-1. Add metadata to `src/data/catalog.js`:
-   ```js
-   { id: 'my-tool', name: 'My Tool', cat: 'daily', icon: 'zap',
-     desc: 'One-line description.', keys: 'search keywords here' }
-   ```
-2. Add the implementation to the matching `src/tools/*.js`:
-   ```js
-   'my-tool': {
-     fields: [ { id: 'x', label: 'Input', type: 'number', default: 1 } ],
-     compute(v) {
-       return { title: 'Result', text: `Answer: ${v.x * 2}` };
-     },
-   },
-   // — or fully custom UI —
-   'my-tool': { mount(container) { container.append(/* DOM */); } },
-   ```
-3. That's it — it appears in search, browse, the footer and the AI assistant automatically.
-
-## Community tools (open-source style)
-
-Anyone can publish a tool via **Community → Publish a tool** (Google sign-in):
-- Name + short description + HTML/CSS/JS code
-- Runs for everyone in a **sandboxed iframe** (no access to the site or your data)
-- Stored in Firestore `communityTools` collection with author credit
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for the exact **Vercel env var checklist**, Firebase setup, admin UID note, and post-deploy verification steps.
 
 ## Privacy
 
-- 100+ tools run entirely client-side — files, text and passwords never leave the device
-- Network tools fetch only the public data you request (IP info, DNS, dictionary, rates)
-- The AI assistant sends only your chat message to the AI provider (when configured)
-- No tracking, no ads, no analytics
+- Most tools run entirely in the browser.
+- Community tools run in a sandboxed iframe.
+- `/api/ai` safely falls back when no keys exist.
+- No API keys are hardcoded in this repo.
 
 ## License
 
-MIT — use it, fork it, build on it.
+MIT
