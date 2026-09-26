@@ -106,8 +106,8 @@ async function test(name, fn) {
   host.remove();
 }
 
-console.log('\n— Tool mounts (all 150) —');
 const { TOOLS, getTool } = await import('../src/tools/index.js');
+console.log(`\n— Tool mounts (all ${TOOLS.length}) —`);
 for (const meta of TOOLS) {
   await test(`${meta.cat}/${meta.id}`, async (host) => {
     const tool = getTool(meta.id);
@@ -159,9 +159,48 @@ await test('community submit', async (host) => {
   const { renderSubmitPage } = await import('../src/pages/community.js');
   renderSubmitPage(host, null);
 });
+await test('sign-in page', async (host) => {
+  const { renderSignInPage } = await import('../src/pages/signin.js');
+  renderSignInPage(host, null);
+});
+await test('profile page signed out', async (host) => {
+  const { renderProfilePage } = await import('../src/pages/profile.js');
+  renderProfilePage(host, null);
+});
+await test('profile page signed in', async (host) => {
+  const { renderProfilePage } = await import('../src/pages/profile.js');
+  renderProfilePage(host, { uid: '1', email: 'test@example.com', displayName: 'Test User', metadata: { creationTime: new Date().toISOString() } });
+});
+await test('admin page', async (host) => {
+  const { renderAdminPage } = await import('../src/pages/admin.js');
+  renderAdminPage(host);
+});
+await test('404 page', async (host) => {
+  const { renderNotFoundPage } = await import('../src/pages/notfound.js');
+  renderNotFoundPage(host);
+});
 await test('help', async (host) => {
   const { renderHelpPage } = await import('../src/pages/help.js');
   renderHelpPage(host);
+});
+
+console.log('\n— Preferences & i18n —');
+await test('favourites logic', async () => {
+  const { toggleFavourite, getFavourites, pushRecentTool, getRecentTools, pushRecentSearch, getRecentSearches, setTheme, getTheme } = await import('../src/prefs.js');
+  toggleFavourite('qr-generator');
+  if (!getFavourites().includes('qr-generator')) throw new Error('favourite not saved');
+  pushRecentTool('qr-generator');
+  if (getRecentTools()[0] !== 'qr-generator') throw new Error('recent tool not tracked');
+  pushRecentSearch('pdf');
+  if (getRecentSearches()[0] !== 'pdf') throw new Error('recent search not tracked');
+  setTheme('dim');
+  if (getTheme() !== 'dim') throw new Error('theme not saved');
+});
+await test('locale toggle', async () => {
+  const { setLocale, getLocale } = await import('../src/data/i18n.js');
+  setLocale('hi');
+  if (getLocale() !== 'hi' || !document.documentElement.lang.startsWith('hi')) throw new Error('locale not applied');
+  setLocale('en');
 });
 
 console.log('\n— AI brain —');
