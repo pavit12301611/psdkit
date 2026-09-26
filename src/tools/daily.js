@@ -11,6 +11,45 @@ import {
 const D = (s) => (s ? new Date(s + 'T00:00:00') : null);
 const dayDiff = (a, b) => Math.round((b - a) / 86400000);
 
+function numberToWordsEn(n) {
+  const ones = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+  const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+  const scales = [['billion', 1_000_000_000], ['million', 1_000_000], ['thousand', 1000], ['hundred', 100]];
+  if (n < 20) return ones[n];
+  if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? `-${ones[n % 10]}` : '');
+  for (const [label, value] of scales) {
+    if (n >= value) {
+      const head = Math.floor(n / value);
+      const tail = n % value;
+      return `${numberToWordsEn(head)} ${label}${tail ? ` ${numberToWordsEn(tail)}` : ''}`;
+    }
+  }
+  return String(n);
+}
+
+function numberToWordsIndian(n) {
+  const units = [['crore', 10000000], ['lakh', 100000], ['thousand', 1000], ['hundred', 100]];
+  if (n < 1000) return numberToWordsEn(n);
+  for (const [label, value] of units) {
+    if (n >= value) {
+      const head = Math.floor(n / value);
+      const tail = n % value;
+      return `${numberToWordsIndian(head)} ${label}${tail ? ` ${numberToWordsIndian(tail)}` : ''}`;
+    }
+  }
+  return String(n);
+}
+
+const FANCY_STYLE_MAPS = {
+  Bold: ['𝗮𝗯𝗰𝗱𝗲𝗳𝗴𝗵𝗶𝗷𝗸𝗹𝗺𝗻𝗼𝗽𝗾𝗿𝘀𝘁𝘂𝘃𝘄𝘅𝘆𝘇', '𝗔𝗕𝗖𝗗𝗘𝗙𝗚𝗛𝗜𝗝𝗞𝗟𝗠𝗡𝗢𝗣𝗤𝗥𝗦𝗧𝗨𝗩𝗪𝗫𝗬𝗭'],
+  Italic: ['𝘢𝘣𝘤𝘥𝘦𝘧𝘨𝘩𝘪𝘫𝘬𝘭𝘮𝘯𝘰𝘱𝘲𝘳𝘴𝘵𝘶𝘷𝘸𝘹𝘺𝘻', '𝘈𝘉𝘊𝘋𝘌𝘍𝘎𝘏𝘐𝘑𝘒𝘓𝘔𝘕𝘖𝘗𝘘𝘙𝘚𝘛𝘜𝘝𝘞𝘟𝘠𝘡'],
+  Script: ['𝓪𝓫𝓬𝓭𝓮𝓯𝓰𝓱𝓲𝓳𝓴𝓵𝓶𝓷𝓸𝓹𝓺𝓻𝓼𝓽𝓾𝓿𝔀𝔁𝔂𝔃', '𝓐𝓑𝓒𝓓𝓔𝓕𝓖𝓗𝓘𝓙𝓚𝓛𝓜𝓝𝓞𝓟𝓠𝓡𝓢𝓣𝓤𝓥𝓦𝓧𝓨𝓩'],
+  Bubble: ['ⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ', 'ⒶⒷⒸⒹⒺⒻⒼⒽⒾⒿⓀⓁⓂⓃⓄⓅⓆⓇⓈⓉⓊⓋⓌⓍⓎⓏ'],
+};
+const EMOJIS = [
+  ['😀', 'grinning face happy smile'], ['😂', 'face tears of joy laugh funny'], ['😍', 'heart eyes love crush'], ['🔥', 'fire hot trending lit'], ['✅', 'check success done tick'], ['🎉', 'party celebration confetti'], ['🚀', 'rocket launch fast growth'], ['✨', 'sparkles magic shine'], ['💡', 'idea bulb tip'], ['📌', 'pin mark save'], ['🙏', 'folded hands thank you namaste'], ['🤖', 'robot ai assistant'], ['❤️', 'red heart love'], ['👍', 'thumbs up approve yes'], ['👀', 'eyes look watch'], ['📈', 'chart growth analytics'], ['🧠', 'brain thinking learn'], ['💻', 'laptop coding computer'], ['📱', 'phone mobile smartphone'], ['🔒', 'lock secure privacy'],
+];
+
 export const DAILY_IMPLS = {
 
   /* 1 ── Age Calculator */
@@ -1446,6 +1485,147 @@ export const DAILY_IMPLS = {
         el('div.mt-2', listEl),
       );
       render();
+    },
+  },
+
+  'number-to-words': {
+    fields: [
+      { id: 'value', label: 'Number', type: 'number', default: 1234567 },
+      { id: 'style', label: 'Format', type: 'select', options: [['international', 'International (million/billion)'], ['indian', 'Indian (lakh/crore)']], default: 'indian' },
+    ],
+    compute(v) {
+      const raw = num(v.value);
+      if (raw == null) return 'Enter a number to convert.';
+      const sign = raw < 0 ? 'minus ' : '';
+      const abs = Math.abs(Math.trunc(raw));
+      const words = v.style === 'indian' ? numberToWordsIndian(abs) : numberToWordsEn(abs);
+      return {
+        title: 'Number in words',
+        stats: [{ label: 'Input', value: fmt.num(raw, 0) }, { label: 'Format', value: v.style === 'indian' ? 'Lakh / Crore' : 'Million / Billion' }],
+        text: `${sign}${words}`,
+        copy: `${sign}${words}`,
+      };
+    },
+  },
+
+  'gst-calculator': {
+    fields: [
+      { id: 'amount', label: 'Amount', type: 'number', default: 1000, half: true },
+      { id: 'rate', label: 'GST rate (%)', type: 'select', half: true, options: [3, 5, 12, 18, 28], default: 18 },
+      { id: 'mode', label: 'This amount is', type: 'select', options: [['exclusive', 'Before GST'], ['inclusive', 'Including GST']], default: 'exclusive' },
+    ],
+    compute(v) {
+      const amount = num(v.amount);
+      const rate = Number(v.rate || 0);
+      if (amount == null) return 'Enter an amount.';
+      const exclusive = v.mode === 'inclusive' ? amount / (1 + rate / 100) : amount;
+      const gst = exclusive * rate / 100;
+      const inclusive = exclusive + gst;
+      return {
+        title: 'GST summary',
+        stats: [
+          { label: 'Base amount', value: fmt.num(exclusive, 2) },
+          { label: 'GST amount', value: fmt.num(gst, 2) },
+          { label: 'Final amount', value: fmt.num(inclusive, 2) },
+          { label: 'CGST / SGST', value: `${fmt.num(gst / 2, 2)} / ${fmt.num(gst / 2, 2)}` },
+        ],
+        text: `Base amount: ${fmt.num(exclusive, 2)}\nGST (${rate}%): ${fmt.num(gst, 2)}\nCGST: ${fmt.num(gst / 2, 2)} · SGST: ${fmt.num(gst / 2, 2)}\nFinal amount: ${fmt.num(inclusive, 2)}`,
+      };
+    },
+  },
+
+  'salary-hike-calc': {
+    fields: [
+      { id: 'current', label: 'Current annual CTC', type: 'number', default: 600000 },
+      { id: 'hike', label: 'Hike (%)', type: 'number', default: 12, half: true },
+      { id: 'bonus', label: 'Monthly deductions (%)', type: 'number', default: 18, half: true, hint: 'Used for a quick in-hand estimate' },
+    ],
+    compute(v) {
+      const current = num(v.current);
+      const hike = num(v.hike) || 0;
+      const deductions = num(v.bonus) || 0;
+      if (current == null) return 'Enter your current annual CTC.';
+      const next = current * (1 + hike / 100);
+      const monthly = next / 12;
+      const inHand = monthly * (1 - deductions / 100);
+      return {
+        title: 'Salary hike result',
+        stats: [
+          { label: 'New CTC', value: fmt.num(next, 2) },
+          { label: 'Increase', value: fmt.num(next - current, 2) },
+          { label: 'Monthly gross', value: fmt.num(monthly, 2) },
+          { label: 'Estimated in-hand', value: fmt.num(inHand, 2) },
+        ],
+        text: `Current CTC: ${fmt.num(current, 2)}\nAfter a ${hike}% hike: ${fmt.num(next, 2)}\nIncrease: ${fmt.num(next - current, 2)}\nMonthly gross: ${fmt.num(monthly, 2)}\nEstimated in-hand after ${deductions}% deductions: ${fmt.num(inHand, 2)}`,
+      };
+    },
+  },
+
+  'fancy-text-generator': {
+    fields: [{ id: 'text', label: 'Text to style', type: 'textarea', rows: 4, default: 'PSDKIT Pro makes everyday tools feel calm.' }],
+    compute(v) {
+      const src = String(v.text || '').trim();
+      if (!src) return 'Type some text first.';
+      const convert = (style) => src.split('').map((ch) => {
+        const code = ch.charCodeAt(0);
+        if (code >= 97 && code <= 122) return FANCY_STYLE_MAPS[style][0][code - 97] || ch;
+        if (code >= 65 && code <= 90) return FANCY_STYLE_MAPS[style][1][code - 65] || ch;
+        return ch;
+      }).join('');
+      const rows = Object.keys(FANCY_STYLE_MAPS).map((style) => `<div class="term-row"><div class="term-name">${style}</div><div class="term-mean">${convert(style)}</div></div>`).join('');
+      return {
+        title: 'Fancy styles',
+        html: rows,
+        copy: Object.keys(FANCY_STYLE_MAPS).map((style) => `${style}: ${convert(style)}`).join('\n'),
+      };
+    },
+  },
+
+  'emoji-finder': {
+    mount(container) {
+      const input = el('input.input', { placeholder: 'Search emoji meanings… like happy, coding, fire' });
+      const grid = el('div.grid.grid-3');
+      const render = () => {
+        const q = input.value.trim().toLowerCase();
+        const list = q ? EMOJIS.filter((item) => item[1].includes(q) || item[0].includes(q)) : EMOJIS;
+        grid.innerHTML = '';
+        grid.append(...list.map(([emoji, meta]) => el('button.card.card-hover', {
+          style: { textAlign: 'left', padding: '16px' },
+          onclick: () => copyText(emoji),
+          html: `<div style="font-size:28px">${emoji}</div><div style="font-weight:800;margin-top:8px">${meta.split(' ')[0]}</div><div class="field-hint" style="margin-top:6px">${meta}</div>`,
+        })));
+      };
+      input.addEventListener('input', debounce(render, 120));
+      container.append(input, el('div.field-hint', { text: 'Tap any emoji to copy it.' }), el('div.mt-2', grid));
+      render();
+    },
+  },
+
+  'leap-year-zodiac': {
+    fields: [{ id: 'date', label: 'Date of birth', type: 'date', default: '2000-01-01' }],
+    compute(v) {
+      const date = D(v.date);
+      if (!date || Number.isNaN(date.getTime())) return 'Pick a valid date.';
+      const year = date.getFullYear();
+      const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+      const m = date.getMonth() + 1;
+      const d = date.getDate();
+      const zodiac = (() => {
+        const z = [
+          ['Capricorn', 1, 19], ['Aquarius', 2, 18], ['Pisces', 3, 20], ['Aries', 4, 19], ['Taurus', 5, 20], ['Gemini', 6, 20], ['Cancer', 7, 22], ['Leo', 8, 22], ['Virgo', 9, 22], ['Libra', 10, 22], ['Scorpio', 11, 21], ['Sagittarius', 12, 21],
+        ];
+        for (const [name, mm, dd] of z) if (m < mm || (m === mm && d <= dd)) return name;
+        return 'Capricorn';
+      })();
+      return {
+        title: 'Leap year & zodiac',
+        stats: [
+          { label: 'Year', value: year },
+          { label: 'Leap year', value: leap ? 'Yes' : 'No' },
+          { label: 'Zodiac', value: zodiac },
+        ],
+        text: `${fmt.date(date)} falls in ${zodiac}. ${year} is ${leap ? '' : 'not '}a leap year.`,
+      };
     },
   },
 };

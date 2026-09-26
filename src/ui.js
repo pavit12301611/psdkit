@@ -1,5 +1,6 @@
 /* Shared UI helpers — DOM builder, toasts, copy, clipboard, formatting. */
 import { icon } from './icons.js';
+import { getLocale } from './data/i18n.js';
 
 /** Tiny hyperscript: el('div.card#id', {attrs?}, child, ...) */
 export function el(tag, attrs, ...children) {
@@ -124,12 +125,13 @@ export function copyButton(getText, label = 'Copy') {
 export const fmt = {
   num(n, digits = 2) {
     if (!isFinite(n)) return '—';
-    const s = Number(n).toLocaleString('en-US', { maximumFractionDigits: digits, minimumFractionDigits: 0 });
-    return s;
+    const locale = getLocale() === 'hi' ? 'hi-IN' : 'en-US';
+    return Number(n).toLocaleString(locale, { maximumFractionDigits: digits, minimumFractionDigits: 0 });
   },
   money(n, currency = 'USD') {
+    const locale = getLocale() === 'hi' ? 'hi-IN' : 'en-US';
     try {
-      return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(n);
+      return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(n);
     } catch {
       return `${currency} ${fmt.num(n)}`;
     }
@@ -141,7 +143,8 @@ export const fmt = {
     return `${(n / 1024 ** i).toFixed(i ? 2 : 0)} ${u[i]}`;
   },
   date(d) {
-    return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    const locale = getLocale() === 'hi' ? 'hi-IN' : 'en-US';
+    return new Date(d).toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' });
   },
   dur(sec) {
     sec = Math.max(0, Math.floor(sec));
@@ -248,6 +251,86 @@ export function dropZone({ accept = '', onFiles, hint = 'Drag & drop a file here
   const wrap = el('div', zone, input);
   wrap.setHint = (h) => { zone.querySelector('div').textContent = h; };
   return wrap;
+}
+
+export function prefersReducedMotion() {
+  return !!matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+}
+
+export function createAvatar(user, size = 42) {
+  const initials = (user?.displayName || user?.email || 'U')
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+  if (user?.photoURL) {
+    return el('img.avatar', {
+      src: user.photoURL,
+      alt: user.displayName || 'Account avatar',
+      width: size,
+      height: size,
+      referrerpolicy: 'no-referrer',
+      style: { width: `${size}px`, height: `${size}px`, borderRadius: '999px', objectFit: 'cover' },
+    });
+  }
+  return el('div.avatar.avatar-fallback', {
+    text: initials,
+    style: { width: `${size}px`, height: `${size}px` },
+  });
+}
+
+export function trapFocus(container, { onEscape } = {}) {
+  const selectors = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  const getItems = () => [...container.querySelectorAll(selectors)].filter((el) => {
+    const style = window.getComputedStyle ? getComputedStyle(el) : { display: '', visibility: '' };
+    return !el.hasAttribute('hidden') && style.display !== 'none' && style.visibility !== 'hidden';
+  });
+  const keydown = (e) => {
+    if (e.key === 'Escape' && onEscape) {
+      e.preventDefault();
+      onEscape(e);
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    const items = getItems();
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+  container.addEventListener('keydown', keydown);
+  setTimeout(() => getItems()[0]?.focus?.({ preventScroll: true }), 0);
+  return () => container.removeEventListener('keydown', keydown);
+}
+
+export function uid(prefix = 'id') {
+  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function levenshtein(a = '', b = '') {
+  const m = a.length;
+  const n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + cost,
+      );
+    }
+  }
+  return dp[m][n];
 }
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

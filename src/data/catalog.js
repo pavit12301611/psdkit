@@ -1,6 +1,6 @@
 /* ============================================================
    PSDKIT Pro — Master Tool Catalog (pure data, no DOM)
-   150 tools: 50 daily · 25 internet · 25 essentials · 50 coding
+   175 tools: 56 daily · 26 internet · 30 essentials · 63 coding
    Consumed by the app (search, browse) AND the AI backend
    so every assistant reply can link to real pages of this site.
    ============================================================ */
@@ -207,6 +207,33 @@ export const TOOLS = [
   { id: 'word-meaning', name: 'Dictionary — Word Meaning', cat: 'coding', icon: 'bookOpen', desc: 'Look up any English word: meaning, pronunciation and examples.', keys: 'dictionary meaning definition words english vocabulary' },
   { id: 'translator', name: 'Translator', cat: 'coding', icon: 'languages', desc: 'Translate words and sentences between 30+ languages instantly.', keys: 'translate language meaning hindi spanish french words' },
   { id: 'thesaurus', name: 'Thesaurus — Synonyms', cat: 'coding', icon: 'bookOpen', desc: 'Find synonyms and antonyms to write with the perfect word.', keys: 'synonym antonyms thesaurus words similar meaning vocabulary' },
+
+  /* ─────────────── NEW TOOLS (25) ─────────────── */
+  { id: 'pdf-watermark', name: 'PDF Watermark', cat: 'essentials', icon: 'file', desc: 'Stamp any PDF with text watermarks like DRAFT, CONFIDENTIAL or your brand name.', keys: 'pdf watermark stamp draft confidential text overlay' },
+  { id: 'pdf-page-numbers', name: 'PDF Page Numbers', cat: 'essentials', icon: 'hash', desc: 'Add page numbers to a PDF with position, colour and custom prefixes.', keys: 'pdf page numbers paginate footer header pages' },
+  { id: 'csv-viewer-editor', name: 'CSV Viewer & Editor', cat: 'coding', icon: 'database', desc: 'Open CSV files as a table, edit cells, and export as CSV or JSON.', keys: 'csv editor viewer spreadsheet table rows columns export json' },
+  { id: 'qr-batch-generator', name: 'QR Batch Generator', cat: 'essentials', icon: 'qr', desc: 'Generate many QR codes at once from a list, with individual downloads and a contact sheet.', keys: 'batch qr generator multiple codes list sheet png' },
+  { id: 'image-colour-extractor', name: 'Image Colour Extractor', cat: 'essentials', icon: 'palette', desc: 'Pull a colour palette from any photo and copy the HEX values instantly.', keys: 'image color colour palette extractor photo hex swatches' },
+  { id: 'number-to-words', name: 'Number to Words', cat: 'daily', icon: 'type', desc: 'Turn numbers into English words, including Indian lakh and crore formatting.', keys: 'number to words indian lakh crore cheque writing text' },
+  { id: 'gst-calculator', name: 'GST Calculator', cat: 'daily', icon: 'percent', desc: 'Add or remove GST and split tax into CGST and SGST in seconds.', keys: 'gst tax calculator india cgst sgst inclusive exclusive' },
+  { id: 'salary-hike-calc', name: 'Salary Hike / Increment Calculator', cat: 'daily', icon: 'dollar', desc: 'Compare your current CTC with a new hike, monthly pay and in-hand estimate.', keys: 'salary hike increment ctc raise appraisal in hand' },
+  { id: 'vcard-qr-generator', name: 'vCard QR Generator', cat: 'essentials', icon: 'user', desc: 'Create a contact QR code from your name, phone, email and company details.', keys: 'vcard qr contact card phone email business' },
+  { id: 'key-code-detector', name: 'Key Code Detector', cat: 'coding', icon: 'keyboard', desc: 'Press any key to see its key, code, keyCode and modifier state.', keys: 'keydown key code keycode keyboard event detector' },
+  { id: 'fancy-text-generator', name: 'Fancy Text Generator', cat: 'daily', icon: 'sparkles', desc: 'Convert plain text into bold, italic, script and aesthetic Unicode styles.', keys: 'fancy text generator unicode bold italic script social bio' },
+  { id: 'braille-translator', name: 'Braille Translator', cat: 'coding', icon: 'type', desc: 'Translate text to Braille patterns and basic Braille back to text.', keys: 'braille translator accessibility dots text convert' },
+  { id: 'emoji-finder', name: 'Emoji Finder', cat: 'daily', icon: 'smile', desc: 'Search emojis by meaning, keyword or mood and copy them with one click.', keys: 'emoji finder search meaning keyword smile copy' },
+  { id: 'regex-library', name: 'Common Regex Library', cat: 'coding', icon: 'search', desc: 'Handy regex patterns for email, URL, phone, date and more — ready to copy and test.', keys: 'regex library patterns email phone url date validation' },
+  { id: 'cron-next-run', name: 'Cron Next-Run Calculator', cat: 'coding', icon: 'clock', desc: 'Paste a cron expression and preview the next five run times in your timezone.', keys: 'cron next run calculator schedule crontab preview expression' },
+  { id: 'json-to-ts', name: 'JSON → TypeScript Interface', cat: 'coding', icon: 'braces', desc: 'Generate TypeScript interfaces from sample JSON with nested object support.', keys: 'json typescript interface generator types ts models' },
+  { id: 'gitignore-generator', name: '.gitignore Generator', cat: 'coding', icon: 'git', desc: 'Build a clean .gitignore from presets like Node, Python, Java and macOS.', keys: 'gitignore generator node python java macos presets' },
+  { id: 'packagejson-generator', name: 'package.json Generator', cat: 'coding', icon: 'box', desc: 'Create a valid package.json with scripts, dependencies and metadata.', keys: 'package json generator npm node scripts dependencies' },
+  { id: 'readme-generator', name: 'README.md Generator', cat: 'coding', icon: 'fileText', desc: 'Generate a polished README with install, usage, features and license sections.', keys: 'readme generator markdown github project docs' },
+  { id: 'linux-permissions', name: 'Linux Permissions Calculator', cat: 'coding', icon: 'shield', desc: 'Toggle read, write and execute permissions to get chmod octal and symbolic values.', keys: 'chmod permissions linux rwx octal symbolic calculator' },
+  { id: 'http-methods-headers', name: 'HTTP Methods & Headers Reference', cat: 'coding', icon: 'activity', desc: 'Searchable guide to common HTTP methods, headers and what they are used for.', keys: 'http methods headers reference get post content-type authorization' },
+  { id: 'design-patterns', name: 'Design Patterns Cheatsheet', cat: 'coding', icon: 'layers', desc: 'A searchable cheatsheet of common software design patterns and when to use them.', keys: 'design patterns cheatsheet singleton observer strategy factory' },
+  { id: 'markdown-cheatsheet', name: 'Markdown Cheatsheet', cat: 'coding', icon: 'fileText', desc: 'Searchable Markdown syntax reference with copy-ready examples.', keys: 'markdown cheatsheet md syntax headings table code block' },
+  { id: 'seo-mini-audit', name: 'SEO Mini-Audit', cat: 'internet', icon: 'searchCheck', desc: 'Fetch a URL and score its title, meta description, H1 and Open Graph basics.', keys: 'seo audit meta title description h1 og tags score' },
+  { id: 'leap-year-zodiac', name: 'Leap Year & Zodiac Finder', cat: 'daily', icon: 'star', desc: 'Check whether a year is a leap year and discover zodiac signs from a date.', keys: 'leap year zodiac horoscope date sign birth' },
 ];
 
 export const TOOL_MAP = Object.fromEntries(TOOLS.map((t) => [t.id, t]));
@@ -215,20 +242,45 @@ export function toolsByCat(cat) {
   return TOOLS.filter((t) => t.cat === cat);
 }
 
+function fuzzyDistance(a = '', b = '') {
+  const x = a.toLowerCase();
+  const y = b.toLowerCase();
+  const dp = Array.from({ length: x.length + 1 }, () => Array(y.length + 1).fill(0));
+  for (let i = 0; i <= x.length; i++) dp[i][0] = i;
+  for (let j = 0; j <= y.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= x.length; i++) {
+    for (let j = 1; j <= y.length; j++) {
+      const cost = x[i - 1] === y[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+    }
+  }
+  return dp[x.length][y.length];
+}
+
 export function searchTools(query) {
   const q = query.trim().toLowerCase();
   if (!q) return TOOLS;
-  const terms = q.split(/\s+/);
+  const terms = q.split(/\s+/).filter(Boolean);
   return TOOLS.map((t) => {
+    const name = t.name.toLowerCase();
     const hay = `${t.name} ${t.desc} ${t.keys} ${t.cat}`.toLowerCase();
     let score = 0;
     for (const term of terms) {
-      if (t.name.toLowerCase().includes(term)) score += 6;
-      if (t.id.includes(term)) score += 4;
-      if (hay.includes(term)) score += 2;
+      if (name === term) score += 20;
+      if (name.startsWith(term)) score += 12;
+      if (name.includes(term)) score += 8;
+      if (t.id.includes(term)) score += 7;
+      if (hay.includes(term)) score += 4;
+      for (const token of [name, ...name.split(/\W+/), ...String(t.keys || '').toLowerCase().split(/\s+/)]) {
+        if (token && term.length > 2) {
+          const dist = fuzzyDistance(term, token.slice(0, Math.max(term.length, token.length)));
+          if (dist === 1) score += 5;
+          else if (dist === 2) score += 2;
+        }
+      }
     }
     return { t, score };
-  }).filter((x) => x.score > 0).sort((a, b) => b.score - a.score).map((x) => x.t);
+  }).filter((x) => x.score > 0).sort((a, b) => b.score - a.score || a.t.name.localeCompare(b.t.name)).map((x) => x.t);
 }
 
 /** Compact index used in the AI system prompt */

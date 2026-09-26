@@ -1212,4 +1212,198 @@ export const ESSENTIAL_IMPLS = {
       tickClock();
     },
   },
+
+  'pdf-watermark': {
+    mount(container) {
+      let file = null;
+      const textIn = el('input.input', { value: 'CONFIDENTIAL' });
+      const sizeIn = el('input.input', { type: 'number', value: 28 });
+      const colorIn = el('input.input', { type: 'color', value: '#DE5D35', style: { padding: '6px', height: '50px' } });
+      const opacityIn = el('input.range', { type: 'range', min: 10, max: 80, value: 28 });
+      const zone = dropZone({ accept: '.pdf', hint: 'Drop a PDF to watermark', onFiles: (files) => { file = files[0]; toast(`${file.name} ready`); } });
+      container.append(zone,
+        el('div.grid.grid-2', { style: { gap: '12px', marginTop: '14px' } },
+          el('div.field', el('label.field-label', { text: 'Watermark text' }), textIn),
+          el('div.field', el('label.field-label', { text: 'Font size' }), sizeIn),
+          el('div.field', el('label.field-label', { text: 'Colour' }), colorIn),
+          el('div.field', el('label.field-label', { text: 'Opacity' }), opacityIn),
+        ),
+        el('div.tool-actions', { style: { marginTop: '12px' } },
+          el('button.btn.btn-accent', { html: `${icon('file', 16)} Add watermark`, onclick: async () => {
+            if (!file) return toast('Choose a PDF first', 'info');
+            try {
+              await loadScript(PDFLIB);
+              const { PDFDocument, rgb, degrees, StandardFonts } = window.PDFLib;
+              const pdf = await PDFDocument.load(await readFileAs(file, 'buffer'), { ignoreEncryption: true });
+              const font = await pdf.embedFont(StandardFonts.HelveticaBold);
+              const hex = colorIn.value.replace('#', '');
+              const color = rgb(parseInt(hex.slice(0, 2), 16) / 255, parseInt(hex.slice(2, 4), 16) / 255, parseInt(hex.slice(4, 6), 16) / 255);
+              pdf.getPages().forEach((page) => {
+                const { width, height } = page.getSize();
+                page.drawText(textIn.value || 'CONFIDENTIAL', {
+                  x: width * 0.15,
+                  y: height * 0.5,
+                  size: Number(sizeIn.value || 28),
+                  rotate: degrees(35),
+                  opacity: Number(opacityIn.value || 28) / 100,
+                  color,
+                  font,
+                });
+              });
+              downloadFile('watermarked.pdf', new Blob([await pdf.save()], { type: 'application/pdf' }));
+              toast('Watermarked PDF downloaded');
+            } catch (error) {
+              toast(`Watermark failed: ${error.message}`, 'x');
+            }
+          } }),
+        ));
+    },
+  },
+
+  'pdf-page-numbers': {
+    mount(container) {
+      let file = null;
+      const prefixIn = el('input.input', { value: 'Page ' });
+      const sizeIn = el('input.input', { type: 'number', value: 12 });
+      const posIn = el('select.select');
+      [['bottom-right', 'Bottom right'], ['bottom-center', 'Bottom center'], ['top-right', 'Top right']].forEach(([value, label]) => posIn.append(el('option', { value, text: label })));
+      const zone = dropZone({ accept: '.pdf', hint: 'Drop a PDF to number', onFiles: (files) => { file = files[0]; toast(`${file.name} ready`); } });
+      container.append(zone,
+        el('div.grid.grid-2', { style: { gap: '12px', marginTop: '14px' } },
+          el('div.field', el('label.field-label', { text: 'Prefix' }), prefixIn),
+          el('div.field', el('label.field-label', { text: 'Position' }), posIn),
+          el('div.field', el('label.field-label', { text: 'Font size' }), sizeIn),
+        ),
+        el('div.tool-actions', { style: { marginTop: '12px' } },
+          el('button.btn.btn-accent', { html: `${icon('hash', 16)} Add page numbers`, onclick: async () => {
+            if (!file) return toast('Choose a PDF first', 'info');
+            try {
+              await loadScript(PDFLIB);
+              const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
+              const pdf = await PDFDocument.load(await readFileAs(file, 'buffer'), { ignoreEncryption: true });
+              const font = await pdf.embedFont(StandardFonts.Helvetica);
+              pdf.getPages().forEach((page, index, arr) => {
+                const label = `${prefixIn.value || 'Page '}${index + 1} / ${arr.length}`;
+                const size = Number(sizeIn.value || 12);
+                const width = font.widthOfTextAtSize(label, size);
+                const { width: pageW, height: pageH } = page.getSize();
+                let x = pageW - width - 28; let y = 22;
+                if (posIn.value === 'bottom-center') x = (pageW - width) / 2;
+                if (posIn.value === 'top-right') y = pageH - 28;
+                page.drawText(label, { x, y, size, font, color: rgb(0.25, 0.25, 0.25) });
+              });
+              downloadFile('page-numbers.pdf', new Blob([await pdf.save()], { type: 'application/pdf' }));
+              toast('Page-numbered PDF downloaded');
+            } catch (error) {
+              toast(`Numbering failed: ${error.message}`, 'x');
+            }
+          } }),
+        ));
+    },
+  },
+
+  'qr-batch-generator': {
+    mount(container) {
+      const linesIn = el('textarea.textarea', { rows: 8, placeholder: 'One item per line', value: 'https://psdkit.pro\nHello from PSDKIT\nhttps://example.com/docs' });
+      const sizeIn = el('input.input', { type: 'number', value: 180 });
+      const sheetHost = el('div');
+      container.append(
+        el('div.field', el('label.field-label', { text: 'Items' }), linesIn, el('div.field-hint', { text: 'Each non-empty line becomes its own QR code.' })),
+        el('div.field', el('label.field-label', { text: 'QR size (px)' }), sizeIn),
+        el('div.tool-actions',
+          el('button.btn.btn-accent', { html: `${icon('qr', 16)} Generate batch`, onclick: async () => {
+            const items = linesIn.value.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+            if (!items.length) return toast('Add at least one line', 'info');
+            await loadScript(QR_LIB);
+            sheetHost.innerHTML = '';
+            const urls = await Promise.all(items.map((value) => new Promise((resolve, reject) => window.QRCode.toDataURL(value, { width: Number(sizeIn.value || 180), margin: 1 }, (err, url) => err ? reject(err) : resolve({ value, url })))));
+            const canvas = document.createElement('canvas');
+            const cols = 2;
+            const card = Number(sizeIn.value || 180) + 40;
+            const rows = Math.ceil(urls.length / cols);
+            canvas.width = cols * card;
+            canvas.height = rows * card;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#FAF7F2';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            for (const [index, item] of urls.entries()) {
+              const img = new Image();
+              await new Promise((resolve) => { img.onload = resolve; img.src = item.url; });
+              const x = (index % cols) * card + 14;
+              const y = Math.floor(index / cols) * card + 14;
+              ctx.drawImage(img, x, y, Number(sizeIn.value || 180), Number(sizeIn.value || 180));
+              ctx.fillStyle = '#161514';
+              ctx.font = '12px sans-serif';
+              ctx.fillText(item.value.slice(0, 24), x, y + Number(sizeIn.value || 180) + 16);
+            }
+            const sheetUrl = canvas.toDataURL('image/png');
+            sheetHost.append(el('div.card',
+              el('img', { src: sheetUrl, alt: 'QR batch sheet', style: { borderRadius: '14px', border: '1px solid var(--cream-line)' } }),
+              el('div.tool-actions.mt-2',
+                el('a.btn.btn-accent', { href: sheetUrl, download: 'qr-batch-sheet.png', html: `${icon('download', 16)} Download sheet` }),
+                ...urls.map((item, index) => el('a.btn.btn-soft.btn-sm', { href: item.url, download: `qr-${index + 1}.png`, text: `QR ${index + 1}` })),
+              ),
+            ));
+          } }),
+        ),
+        el('div.mt-3', sheetHost),
+      );
+    },
+  },
+
+  'image-colour-extractor': {
+    mount(container) {
+      let file = null;
+      const host = el('div.grid.grid-3');
+      const zone = dropZone({ accept: 'image/*', hint: 'Drop a photo to extract colours', onFiles: async (files) => { file = files[0]; render(); } });
+      async function render() {
+        if (!file) return;
+        const img = await loadImage(file);
+        const canvas = document.createElement('canvas');
+        canvas.width = 80; canvas.height = Math.max(1, Math.round((img.height / img.width) * 80));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        const buckets = new Map();
+        for (let i = 0; i < data.length; i += 4) {
+          const r = Math.round(data[i] / 32) * 32;
+          const g = Math.round(data[i + 1] / 32) * 32;
+          const b = Math.round(data[i + 2] / 32) * 32;
+          const hex = '#' + [r, g, b].map((n) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0')).join('');
+          buckets.set(hex, (buckets.get(hex) || 0) + 1);
+        }
+        const palette = [...buckets.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([hex]) => hex);
+        host.innerHTML = '';
+        palette.forEach((hex) => host.append(el('button.card.card-hover', { onclick: () => copyText(hex) },
+          el('div', { style: { height: '72px', borderRadius: '14px', background: hex, marginBottom: '12px' } }),
+          el('div', { style: { fontWeight: 800 }, text: hex }),
+          el('div.field-hint', { text: 'Click to copy' }),
+        )));
+      }
+      container.append(zone, el('div.mt-3', host));
+    },
+  },
+
+  'vcard-qr-generator': {
+    fields: [
+      { id: 'name', label: 'Full name', type: 'text', default: 'Priya Sharma' },
+      { id: 'org', label: 'Company', type: 'text', default: 'PSDKIT Pro', half: true },
+      { id: 'phone', label: 'Phone', type: 'text', default: '+91 98765 43210', half: true },
+      { id: 'email', label: 'Email', type: 'text', default: 'hello@example.com', half: true },
+      { id: 'title', label: 'Job title', type: 'text', default: 'Product Designer', half: true },
+      { id: 'url', label: 'Website', type: 'text', default: 'https://psdkit.pro' },
+    ],
+    live: false,
+    buttonLabel: 'Generate contact QR',
+    async compute(v) {
+      await loadScript(QR_LIB);
+      const card = ['BEGIN:VCARD', 'VERSION:3.0', `FN:${v.name || ''}`, `ORG:${v.org || ''}`, `TITLE:${v.title || ''}`, `TEL:${v.phone || ''}`, `EMAIL:${v.email || ''}`, `URL:${v.url || ''}`, 'END:VCARD'].join('\n');
+      const dataUrl = await new Promise((resolve, reject) => window.QRCode.toDataURL(card, { width: 320, margin: 2 }, (err, url) => err ? reject(err) : resolve(url)));
+      return {
+        title: 'vCard QR',
+        html: `<div style="display:flex;flex-direction:column;align-items:center;gap:12px"><img src="${dataUrl}" alt="vCard QR" style="width:min(320px,100%);border-radius:16px;border:1px solid var(--cream-line)"><a class="copy-btn" href="${dataUrl}" download="vcard-qr.png">${icon('download', 13)} Download PNG</a></div>`,
+        copy: card,
+      };
+    },
+  },
 };
