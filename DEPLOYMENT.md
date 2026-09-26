@@ -1,120 +1,174 @@
-# Deployment Guide — PSDKIT Pro (Vercel + Firebase)
+# Deployment Guide — PSDKIT Pro
 
-This checklist makes the app **fully live and production ready**.
+This app is designed to work in two modes:
+
+1. **No keys set yet** → the toolkit still works, the AI falls back to the local knowledge brain, and Firebase-powered community/account features show friendly degraded states.
+2. **Keys set in Vercel + redeployed** → Google sign-in, Firestore community features, and upgraded AI replies all turn on automatically.
 
 ---
 
-## A. Vercel deployment
+# 🔑 PASTE YOUR KEYS HERE
 
-### 1. Push code to GitHub
+## Step 1 — Vercel dashboard
+
+Go to **Vercel dashboard → your project → Settings → Environment Variables**.
+Add **every variable below** with scope **Production + Preview**, then **Redeploy**.
+
+| Variable name | Where to find the value | Where to paste it |
+|---|---|---|
+| `OPENAI_API_KEY` | OpenAI dashboard → API keys | Vercel → Settings → Environment Variables |
+| `GEMINI_API_KEY` | Google AI Studio → API keys | Vercel → Settings → Environment Variables |
+| `AI_MODEL` | Optional custom model name, otherwise leave blank and code defaults automatically | Vercel → Settings → Environment Variables |
+| `VITE_FIREBASE_API_KEY` | Firebase console → Project settings → Your apps → Web app config → `apiKey` | Vercel → Settings → Environment Variables |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase console → Web app config → `authDomain` | Vercel → Settings → Environment Variables |
+| `VITE_FIREBASE_PROJECT_ID` | Firebase console → Web app config → `projectId` | Vercel → Settings → Environment Variables |
+| `VITE_FIREBASE_STORAGE_BUCKET` | Firebase console → Web app config → `storageBucket` | Vercel → Settings → Environment Variables |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase console → Web app config → `messagingSenderId` | Vercel → Settings → Environment Variables |
+| `VITE_FIREBASE_APP_ID` | Firebase console → Web app config → `appId` | Vercel → Settings → Environment Variables |
+| `VERCEL_TOKEN` | Optional, only if you personally want to use the Vercel CLI from a terminal | Vercel or local shell only |
+
+### Exact user steps
+1. **Vercel dashboard → project → Settings → Environment Variables → Add each variable (scope: Production + Preview) → Redeploy.**
+2. **Terminal alternative (run locally):** `npx vercel env add OPENAI_API_KEY` and repeat for each variable.
+3. **Firebase console:** enable Google sign-in, create Firestore, paste `firestore.rules`, add the `.vercel.app` domain to **Authentication → Authorized domains**.
+
+---
+
+## Step 2 — Terminal alternative
+
+If you prefer the CLI locally, run:
+
 ```bash
-git add .
-git commit -m "feat: PSDKIT Pro"
-git push origin main
+npx vercel env add OPENAI_API_KEY
+npx vercel env add GEMINI_API_KEY
+npx vercel env add AI_MODEL
+npx vercel env add VITE_FIREBASE_API_KEY
+npx vercel env add VITE_FIREBASE_AUTH_DOMAIN
+npx vercel env add VITE_FIREBASE_PROJECT_ID
+npx vercel env add VITE_FIREBASE_STORAGE_BUCKET
+npx vercel env add VITE_FIREBASE_MESSAGING_SENDER_ID
+npx vercel env add VITE_FIREBASE_APP_ID
 ```
 
-### 2. Import to Vercel
-1. [vercel.com/new](https://vercel.com/new) → **Import Git Repository**
-2. Select the repo → Framework preset: **Vite** (auto-detected)
-3. Build command: `npm run build` · Output directory: `dist` (defaults are correct)
-4. **Deploy**
+Then redeploy:
 
-### 3. Environment variables (Settings → Environment Variables)
-
-**Client (needed for Google login + community tools):**
+```bash
+npx vercel --prod
 ```
-VITE_FIREBASE_API_KEY
-VITE_FIREBASE_AUTH_DOMAIN
-VITE_FIREBASE_PROJECT_ID
-VITE_FIREBASE_STORAGE_BUCKET
-VITE_FIREBASE_MESSAGING_SENDER_ID
-VITE_FIREBASE_APP_ID
-```
-
-**Server (needed for the smart AI assistant):**
-```
-OPENAI_API_KEY        # from https://platform.openai.com/api-keys
-# — or —
-GEMINI_API_KEY        # from https://aistudio.google.com/apikey
-
-AI_MODEL              # optional: gpt-4o-mini (default) | gpt-4o | gemini-1.5-flash
-```
-
-> Select **Production, Preview and Development** for each variable.
-> After adding/changing variables → **Deployments → ⋯ → Redeploy**.
-
-> 💡 Without any AI key the assistant automatically uses its built-in
-> knowledge engine (it knows all 150 tools & pages). With a key it becomes
-> a full conversational AI. The site never breaks either way.
 
 ---
 
-## B. Firebase setup (Google auth + database)
+## Step 3 — Firebase setup
 
-### 1. Create project
-[console.firebase.google.com](https://console.firebase.google.com) → **Add project** → disable Analytics if you like → Create.
+### A. Create the Firebase project
+- Firebase console → **Add project**
+- Open **Project settings**
+- Register a **Web app**
+- Copy the config values into the `VITE_FIREBASE_*` variables above
 
-### 2. Enable Google sign-in
-**Build → Authentication → Sign-in method → Google → Enable → Save**
+### B. Enable Google sign-in
+- Firebase console → **Authentication**
+- **Sign-in method** → **Google** → Enable
 
-### 3. Create the database
-**Build → Firestore Database → Create database → Production mode →** choose the closest region → Create.
+### C. Create Firestore
+- Firebase console → **Firestore Database**
+- Create database in production mode
+- Open the **Rules** tab
+- Paste the contents of [`firestore.rules`](./firestore.rules)
+- Publish
 
-### 4. Paste security rules
-**Firestore → Rules** → paste everything from [`firestore.rules`](./firestore.rules) → **Publish**.
-
-Rules summary:
-- `communityTools`: world-readable, signed-in users can create, only the author can edit/delete their own tool
-- Everything else: locked
-
-### 5. Register the web app & copy config
-**Project settings ⚙ → General → Your apps → Web `</>`** → nickname `psdkit-pro` → Register.
-Copy each value into Vercel:
-
-| Firebase config field | Vercel variable |
-|---|---|
-| `apiKey` | `VITE_FIREBASE_API_KEY` |
-| `authDomain` | `VITE_FIREBASE_AUTH_DOMAIN` |
-| `projectId` | `VITE_FIREBASE_PROJECT_ID` |
-| `storageBucket` | `VITE_FIREBASE_STORAGE_BUCKET` |
-| `messagingSenderId` | `VITE_FIREBASE_MESSAGING_SENDER_ID` |
-| `appId` | `VITE_FIREBASE_APP_ID` |
-
-### 6. Authorize your domains
-**Authentication → Settings → Authorized domains → Add domain:**
+### D. Authorized domains
+Add your deployed domain(s):
 - `your-project.vercel.app`
-- your custom domain (if any)
+- any custom domain you connect later
 
 ---
 
-## C. Custom domain (optional)
-Vercel → **Settings → Domains → Add** → update nameservers/CNAME at your registrar → SSL is automatic.
+## Step 4 — Admin / moderation setup
+
+The admin page reads the Firestore collection:
+
+```text
+admins/{uid}
+```
+
+To make yourself an admin:
+1. Sign in once on the live site.
+2. Copy your Firebase Auth UID from the console / user record.
+3. In Firestore, create a document in the `admins` collection with the document ID set to your UID.
+4. Visit `#/admin`.
+
+The document can be empty; only the UID/doc id matters.
 
 ---
 
-## D. Production checklist
+## Step 5 — What works before keys exist?
 
-- [ ] `npm run build` succeeds locally
-- [ ] Live site loads, hero video plays, tools work
-- [ ] Search & category browsing work
-- [ ] Google sign-in pops up and returns to the site
-- [ ] Publishing a community tool shows it in the toolbox for logged-out visitors
-- [ ] AI button answers with links to site pages
-- [ ] Mobile: drawer nav, tool pages and chat feel smooth
-- [ ] `firestore.rules` deployed
-- [ ] AI key set (or accepted the built-in assistant)
+Even with **no keys set**:
+- the main 175-tool toolkit still works
+- `/api/ai` returns a safe fallback signal
+- the client-side local AI brain still answers naturally
+- sign-in/community areas show friendly fallback states instead of breaking
+
+Once you add the keys and redeploy, the upgraded behaviour switches on automatically.
 
 ---
 
-## E. Updating
-Every push to `main` auto-deploys. To update Firebase rules later — republish in the Firebase console. To rotate AI keys — update the env var and redeploy.
+## Step 6 — Verification after redeploy
 
-## F. Troubleshooting
+After you add the keys and click **Redeploy**, verify in this order:
 
-| Problem | Fix |
-|---|---|
-| Google login popup blocked | Make sure the domain is in Firebase → Authentication → Authorized domains |
-| "Firebase is not configured" toast | Env vars missing or not prefixed with `VITE_` → recheck + redeploy |
-| Community publish fails | Check Firestore rules are published; user must be signed in |
-| AI replies are generic | Add `OPENAI_API_KEY` or `GEMINI_API_KEY` and redeploy |
-| Build fails | Node 18+ required on Vercel (default is fine); run `npm run build` locally to see errors |
+### A. AI
+1. Open the live site
+2. Open the chat button
+3. Ask: **“How do I merge a PDF?”**
+4. Confirm you get a natural reply with internal site links
+
+### B. Google sign-in
+1. Go to `#/signin`
+2. Click **Continue with Google**
+3. Confirm you return to the page you came from
+4. Confirm the navbar now shows your avatar + profile menu
+
+### C. Community / Firestore
+1. Go to `#/community/add`
+2. Publish a small sample tool
+3. Confirm it appears on `#/community`
+4. Rate it, report it from another account if needed, and confirm the profile/admin flows work
+
+### D. PWA / SEO
+- Check `manifest.webmanifest` loads
+- Check `robots.txt` and `sitemap.xml` are live
+- On mobile, confirm the install prompt can appear
+
+---
+
+## Notes
+
+- `.env` stays gitignored.
+- `.env.example` contains variable names only with empty values.
+- Never hardcode secrets in source files, docs, screenshots or fixtures.
+- `OPENAI_API_KEY` / `GEMINI_API_KEY` are server-side only.
+- `VITE_FIREBASE_*` values are expected public Firebase web config values.
+
+---
+
+## Local quality checks
+
+Run before pushing:
+
+```bash
+npm ci
+npm test
+npm run build
+```
+
+## CI
+
+GitHub Actions runs on push and pull request:
+
+```bash
+npm ci
+npm test
+npm run build
+```
