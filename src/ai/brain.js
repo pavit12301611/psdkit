@@ -19,7 +19,7 @@ const INTENTS = [
     match: /^(hi|hello|hey|yo|namaste|hola|good (morning|evening|afternoon))\b/i,
     run: () => pick(
       `Hey! 👋 Welcome to PSDKIT Pro. I can point you to the right tool, explain any tech word, or help with coding.\n\nTry the [toolkit](#/tools) or just tell me what you’re trying to do today!`,
-      `Hello! Great to see you. I know all 150 tools on this site — tell me what you need (like “compress a PDF” or “what is an API”) and I’ll take you there.\n\nOr browse the [full toolkit](#/tools) yourself.`,
+      `Hello! Great to see you. I know all 175 tools on this site — tell me what you need (like “compress a PDF” or “what is an API”) and I’ll take you there.\n\nOr browse the [full toolkit](#/tools) yourself.`,
     ),
   },
   {
