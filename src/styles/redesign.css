@@ -1,56 +1,59 @@
 /* PSDKIT Pro — cohesive product design layer. Loaded after legacy component styles. */
 :root {
   color-scheme: light;
-  --cream: #f5f6f8;
-  --cream-soft: #ffffff;
-  --cream-deep: #eceef2;
-  --cream-line: #e2e5ea;
-  --ink: #191d27;
-  --ink-soft: #303641;
-  --muted: #626b79;
-  --muted-light: #858d99;
-  --accent: #df5c3a;
-  --accent-deep: #c94a2b;
+  --cream: #f7f7f3;
+  --cream-soft: #fffefa;
+  --cream-deep: #efefe9;
+  --cream-line: #e5e6de;
+  --ink: #22262b;
+  --ink-soft: #363d43;
+  --muted: #626d71;
+  --muted-light: #899397;
+  --accent: #c94a2b;
+  --accent-deep: #b13b21;
   --accent-soft: #f2c9ba;
   --accent-wash: #fff0ea;
   --r-xl: 24px;
   --r-lg: 18px;
-  --shadow-sm: 0 2px 8px rgba(20, 28, 42, .045);
-  --shadow-md: 0 12px 32px rgba(20, 28, 42, .085);
-  --shadow-lg: 0 24px 64px rgba(20, 28, 42, .14);
+  --shadow-sm: 0 2px 8px rgba(29, 35, 34, .045);
+  --shadow-md: 0 12px 32px rgba(29, 35, 34, .085);
+  --shadow-lg: 0 24px 64px rgba(29, 35, 34, .14);
   --wrap: 1200px;
   --nav-h: 74px;
 }
+
+/* Night mode has its own deep-slate + mint palette, not a dimmed light theme. */
 html[data-theme='dim'] {
   color-scheme: dark;
-  --cream: #111318;
-  --cream-soft: #191c23;
-  --cream-deep: #222630;
-  --cream-line: #2c313c;
-  --ink: #f2f4f7;
-  --ink-soft: #d7dbe2;
-  --muted: #a1a8b4;
-  --muted-light: #828b99;
-  --accent: #ff805c;
-  --accent-deep: #ff9577;
-  --accent-soft: #66382d;
-  --accent-wash: #30221f;
-  --peach: #33241f;
-  --sage: #202d27;
-  --sky: #202a34;
-  --lavender: #2a2434;
-  --butter: #312d20;
-  --blush: #342326;
-  --mint: #202e2b;
-  --sand: #302a22;
-  --shadow-sm: 0 2px 10px rgba(0,0,0,.16);
-  --shadow-md: 0 14px 36px rgba(0,0,0,.25);
-  --shadow-lg: 0 24px 70px rgba(0,0,0,.42);
+  --cream: #0d1420;
+  --cream-soft: #131c2b;
+  --cream-deep: #1c293a;
+  --cream-line: #2c3b4e;
+  --ink: #edf4f7;
+  --ink-soft: #d1e0e4;
+  --muted: #9cafb5;
+  --muted-light: #7f9299;
+  --accent: #69ddc4;
+  --accent-deep: #89f0d9;
+  --accent-soft: #245a53;
+  --accent-wash: #142e2c;
+  --peach: #392921;
+  --sage: #20372f;
+  --sky: #20354a;
+  --lavender: #302847;
+  --butter: #3a3522;
+  --blush: #3a282f;
+  --mint: #20372f;
+  --sand: #332d24;
+  --shadow-sm: 0 2px 10px rgba(0,0,0,.2);
+  --shadow-md: 0 14px 36px rgba(0,0,0,.32);
+  --shadow-lg: 0 24px 70px rgba(0,0,0,.5);
 }
 
 html { scroll-padding-top: calc(var(--nav-h) + 18px); }
 body { background: var(--cream); color: var(--ink); }
 ::selection { background: var(--accent); color: #fff; }
+:focus-visible { outline-color: color-mix(in srgb, var(--accent) 58%, transparent); }
 .wrap { max-width: var(--wrap); }
 .display { letter-spacing: -.045em; }
 .display em { color: var(--accent); }
@@ -69,6 +72,8 @@ body { background: var(--cream); color: var(--ink); }
 .input:focus, .select:focus, .textarea:focus, .search-box input:focus, .ai-input:focus { background: var(--cream-soft); }
 .btn-primary { background: var(--ink); border-color: var(--ink); color: var(--cream-soft); }
 .btn-primary:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+html[data-theme='dim'] .btn-primary { background: var(--accent); border-color: var(--accent); color: #0d1420; }
+html[data-theme='dim'] .btn-primary:hover, html[data-theme='dim'] .btn-accent { background: var(--accent-deep); border-color: var(--accent-deep); color: #0d1420; }
 .btn-outline { border-color: var(--cream-line); background: var(--cream-soft); }
 .btn-outline:hover { background: var(--ink); border-color: var(--ink); color: var(--cream-soft); }
 .btn-soft { background: var(--cream-soft); border-color: var(--cream-line); }
@@ -81,26 +86,36 @@ html[data-theme='dim'] .nav-shell.scrolled { background: color-mix(in srgb, var(
 .nav-link.active::after { content: none; }
 .drawer { background: var(--cream-soft); }
 .footer { background: #191d27; color: #f5f6f8; border-radius: 28px 28px 0 0; margin: 48px 12px 0; }
-html[data-theme='dim'] .footer { background: #0b0d11; }
+html[data-theme='dim'] .footer { background: #080d15; border: 1px solid #1c293a; }
 .footer a { color: rgba(245,246,248,.72); }
 .footer .f-title { color: rgba(245,246,248,.48); }
 .footer-bottom { border-top-color: rgba(245,246,248,.14); }
 .result-head { background: var(--cream); }
 .stat, .mini-table th, kbd { background: var(--cream); }
 pre.code { background: #171b24; }
+html[data-theme='dim'] pre.code { background: #09101b; border: 1px solid var(--cream-line); }
 html[data-theme='dim'] .tool-card .t-icon,
 html[data-theme='dim'] .learn-card .l-ico,
 html[data-theme='dim'] .r-ico,
 html[data-theme='dim'] .tool-head-row .t-icon { color: #e9edf3; }
-html[data-theme='dim'] .tile-peach { background: #3a2924; color: #ffb397; }
-html[data-theme='dim'] .tile-sage { background: #25352d; color: #a8d2b8; }
-html[data-theme='dim'] .tile-sky { background: #253442; color: #a7cee9; }
-html[data-theme='dim'] .tile-lavender { background: #30283b; color: #c9b3e8; }
-html[data-theme='dim'] .tile-butter { background: #393321; color: #e7d596; }
-html[data-theme='dim'] .tile-blush { background: #3b292c; color: #e9adb7; }
-html[data-theme='dim'] .tile-mint { background: #253631; color: #a6d3c0; }
-html[data-theme='dim'] .tile-sand { background: #373126; color: #dfc99f; }
+html[data-theme='dim'] .tile-peach { background: #392921; color: #ffc3a7; }
+html[data-theme='dim'] .tile-sage { background: #20372f; color: #9be4bc; }
+html[data-theme='dim'] .tile-sky { background: #20354a; color: #a4d7ff; }
+html[data-theme='dim'] .tile-lavender { background: #302847; color: #d3baff; }
+html[data-theme='dim'] .tile-butter { background: #3a3522; color: #efdc94; }
+html[data-theme='dim'] .tile-blush { background: #3a282f; color: #f0b3c0; }
+html[data-theme='dim'] .tile-mint { background: #20372f; color: #9be4bc; }
+html[data-theme='dim'] .tile-sand { background: #332d24; color: #dfc99f; }
+html[data-theme='dim'] .badge-daily { background: #392921; color: #ffc3a7; }
+html[data-theme='dim'] .badge-internet { background: #20354a; color: #a4d7ff; }
+html[data-theme='dim'] .badge-essentials { background: #20372f; color: #9be4bc; }
+html[data-theme='dim'] .badge-coding { background: #302847; color: #d3baff; }
+html[data-theme='dim'] .badge-learn { background: #3a3522; color: #efdc94; }
+html[data-theme='dim'] .badge-free { background: var(--accent-wash); color: var(--accent-deep); }
 html[data-theme='dim'] .cat-card { background: var(--cream-soft) !important; border: 1px solid var(--cream-line); color: var(--ink); }
+html[data-theme='dim'] .cat-card:nth-child(2) { background: #14202e !important; }
+html[data-theme='dim'] .cat-card:nth-child(3) { background: #14231f !important; }
+html[data-theme='dim'] .cat-card:nth-child(4) { background: #1b1930 !important; }
 html[data-theme='dim'] .cat-card .c-count { color: var(--accent); opacity: 1; }
 html[data-theme='dim'] .cat-card .c-desc { color: var(--muted); opacity: 1; }
 html[data-theme='dim'] .cat-card .c-deco { background: var(--cream-deep); opacity: .65; }
@@ -113,7 +128,7 @@ html[data-theme='dim'] .cat-card .c-deco { background: var(--cream-deep); opacit
   background: radial-gradient(ellipse at 78% 40%, rgba(222, 93, 53, .075), transparent 36%), var(--cream);
 }
 html[data-theme='dim'] .home-hero {
-  background: radial-gradient(ellipse at 78% 40%, rgba(255, 128, 92, .09), transparent 38%), var(--cream);
+  background: radial-gradient(ellipse at 78% 36%, rgba(105, 221, 196, .13), transparent 38%), radial-gradient(ellipse at 22% 95%, rgba(90, 132, 255, .08), transparent 34%), var(--cream);
 }
 .hero-grid { display: grid; grid-template-columns: minmax(0, .92fr) minmax(450px, 1.08fr); gap: clamp(32px, 6vw, 84px); align-items: center; }
 .hero-copy { max-width: 550px; padding: 18px 0 48px; }
