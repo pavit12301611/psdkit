@@ -1,7 +1,7 @@
 /* ============================================================
    DAILY TOOLS (50) — calculators, converters, timers, generators
    ============================================================ */
-import { el, fmt, copyText, toast, downloadFile, readFileAs, debounce } from '../ui.js';
+import { el, fmt, copyText, toast, downloadFile, readFileAs, debounce, requireCtx } from '../ui.js';
 import { icon } from '../icons.js';
 import {
   mountFormTool, converterTool, UNITS, num, wordsCapitalise, renderResult,
@@ -1101,7 +1101,10 @@ export const DAILY_IMPLS = {
       const listIn = el('textarea.textarea', { rows: 6 });
       listIn.value = 'Pizza\nBurger\nSushi\nPasta\nSalad\nTacos';
       const canvas = el('canvas', { width: 320, height: 320, class: 'stage-canvas' });
-      const ctx = canvas.getContext('2d');
+      /* Without a 2D context there is no wheel to draw, so say so instead of
+         throwing inside the render loop and leaving a blank tool. */
+      const ctx = requireCtx(canvas, container);
+      if (!ctx) return;
       const resultEl = el('div.center-x.mt-2');
       let items = [], angle = 0, spinning = false;
 

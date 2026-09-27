@@ -115,16 +115,19 @@ export function statGrid(stats) {
 
 /** Live "copy" button that mounts into a container */
 export function copyButton(getText, label = 'Copy') {
-  return el('button.copy-btn', {
-    html: icon('copy', 14) + `<span>${label}</span>`,
-    onclick: async (e) => {
-      const ok = await copyText(typeof getText === 'function' ? getText() : getText);
-      if (ok) {
-        const span = e.currentTarget.querySelector('span');
-        if (span) { span.textContent = 'Copied!'; setTimeout(() => (span.textContent = label), 1500); }
-      }
-    },
+  const btn = el('button.copy-btn', { html: icon('copy', 14) + `<span>${label}</span>` });
+  btn.addEventListener('click', async () => {
+    const ok = await copyText(typeof getText === 'function' ? getText() : getText);
+    if (!ok) return;
+    /* Reference the button through the closure, never e.currentTarget: the DOM
+       nulls currentTarget as soon as dispatch finishes, so reading it after the
+       await above throws and the "Copied!" confirmation never appears. */
+    const span = btn.querySelector('span');
+    if (!span) return;
+    span.textContent = 'Copied!';
+    setTimeout(() => { span.textContent = label; }, 1500);
   });
+  return btn;
 }
 
 /* ---------- Formatting ---------- */
@@ -202,7 +205,44 @@ export function debounce(fn, ms = 250) {
   };
 }
 
-/** Lazy-load a CDN script once */
+/* ---------- Canvas ---------- */
+
+/**
+ * `canvas.getContext('2d')` returns null — it does not throw — when the browser
+ * has no 2D backend, has hardware acceleration disabled, or has run out of
+ * canvas memory. Every caller used to skip that check and then fail with
+ * "Cannot read properties of null (reading 'fillStyle')", which tells the user
+ * nothing. Use this instead of calling getContext directly.
+ */
+export function ctx2d(canvas) {
+  try {
+    return canvas?.getContext?.('2d') || null;
+  } catch {
+    return null;
+  }
+}
+
+export const CANVAS_UNSUPPORTED = 'This browser could not open a drawing surface (canvas 2D is unavailable). Tools that paint — whiteboards, image edits, QR sheets — need it. Try enabling hardware acceleration or a different browser.';
+
+/** Friendly stand-in for a tool that cannot draw anything. */
+export function canvasNotice(message = CANVAS_UNSUPPORTED) {
+  return el('div.result-card',
+    el('div.result-head', el('span.result-title', { text: 'Drawing unavailable' })),
+    el('div.result-body', el('div.result-out', { text: message })),
+  );
+}
+
+/**
+ * Guard a canvas tool: returns the 2D context, or renders `canvasNotice()` into
+ * `host` and returns null so the caller can bail out cleanly.
+ */
+export function requireCtx(canvas, host) {
+  const ctx = ctx2d(canvas);
+  if (!ctx && host) host.append(canvasNotice());
+  return ctx;
+}
+
+/** Lazy-load an external script once. Only used for the optional Firebase SDK. */
 const scriptCache = new Map();
 export function loadScript(url) {
   if (scriptCache.has(url)) return scriptCache.get(url);

@@ -1,7 +1,8 @@
 /* ============================================================
    INTERNET TOOLS (25) — network lookups, site inspection, link tools
    ============================================================ */
-import { el, fmt, copyText, toast, debounce, loadScript } from '../ui.js';
+import { el, fmt, copyText, toast, debounce } from '../ui.js';
+import { loadQr } from './libs.js';
 import { icon } from '../icons.js';
 import { mountFormTool, num } from './formkit.js';
 import { TOOL_COUNT } from '../data/catalog.js';
@@ -853,9 +854,9 @@ export const INTERNET_IMPLS = {
     async compute(v) {
       const esc = (s) => String(s || '').replace(/([\\;,:"])/g, '\\$1');
       const payload = `WIFI:T:${v.enc};S:${esc(v.ssid)};${v.enc !== 'nopass' ? `P:${esc(v.pass)};` : ''}${v.hidden ? 'H:true;' : ''};`;
-      await loadScript('https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js');
+      const QRCode = await loadQr();
       const dataUrl = await new Promise((resolve, reject) => {
-        window.QRCode.toDataURL(payload, { width: 320, margin: 2, color: { dark: '#161514', light: '#FAF7F2' } }, (err, url) => err ? reject(err) : resolve(url));
+        QRCode.toDataURL(payload, { width: 320, margin: 2, color: { dark: '#161514', light: '#FAF7F2' } }, (err, url) => err ? reject(err) : resolve(url));
       });
       return {
         title: 'Wi-Fi QR code',

@@ -63,6 +63,23 @@ Counts are derived from `src/data/catalog.js` at runtime (`TOOL_COUNT`), and a t
 
 Every new tool has an AI-assistant intent, so asking the assistant about income tax, subnets, CGPA, favicons or JSON diffs links straight to the right page.
 
+## No CDN dependencies
+
+Every third-party library is vendored through npm and code-split into its own lazily-fetched chunk by Vite, served from our own origin:
+
+| Library | Used by |
+|---|---|
+| `qrcode` · `jsqr` | QR generator, Wi-Fi QR, vCard QR, QR batch sheet, QR scanner |
+| `pdf-lib` · `pdfjs-dist` | PDF merge/split/watermark/page numbers, images → PDF, PDF → image |
+| `marked` · `turndown` · `js-beautify` | Markdown preview, Markdown ⇄ HTML, HTML/CSS/JS formatters |
+
+`src/tools/libs.js` is the single place that knows about them. It used to be `<script src="https://cdn.jsdelivr.net/…">` injected on demand — when that request failed (blocked network, CDN outage, offline PWA, corporate proxy) the QR, PDF and formatter tools died with `Failed to load <url>` and could not recover. They now load from the same origin as everything else and work offline once cached.
+
+Two libraries were also made unnecessary:
+
+- **Hashing** uses Web Crypto when available and a pure-JS SHA-1/256/512 otherwise. `crypto.subtle` only exists in a secure context, so over plain HTTP (a LAN IP, a dev box on a phone) the checksum tools used to throw. Both paths are verified against `node:crypto` in the test suite.
+- **Colour parsing** no longer round-trips through `canvas.fillStyle`, which silently reported black for any input the browser rejected. `parseColour()` handles hex, `rgb()`, `hsl()` and CSS names directly; the canvas is only a fallback for names outside that table.
+
 ## Text-fit work in this upgrade
 
 Text used to escape its box in several places — stat tiles, result headers, tables and long tokens. Both root causes are now fixed in CSS and guarded by a test:
@@ -134,11 +151,19 @@ Copy `.env.example` to `.env` for local testing if needed. Keep real secrets out
 - `npm run dev` — Vite dev server
 - `npm test` — jsdom smoke suite **plus** the text-fit audit (both must pass)
 - `npm run test:smoke` — jsdom smoke suite only
-- `npm run audit` — text-fit audit only, `--verbose` lists every finding
+- `npm run audit` — text-fit audit only
+- `npm run audit:tools` — deep tool auditor, `--mode=healthy|hostile`, `--only=<id>` to iterate on one tool
 - `npm run build` — generates sitemap/robots then builds production assets
 - `npm run preview` — preview the production build
 
 ### What the audits check
+
+`scripts/audit-tools.mjs` is the deepest one: it does not merely mount each tool, it **operates** it. Every field is filled with a realistic value (inferred from the field's id, label and placeholder), every button is clicked, and anything escaping as an exception, an unhandled rejection or a `console.error` is attributed to the tool that caused it. It runs twice:
+
+- **healthy** — network answers with plausible canned data per API, canvas works
+- **hostile** — `fetch` rejects, `getContext('2d')` returns `null`, the camera is denied, `crypto.subtle` is absent
+
+The hostile pass is the one that matters. A tool is allowed to fail to do its job when the network is down; it is not allowed to throw at the user. That pass is what caught six tools crashing on a null canvas context and the checksum tool crashing without `crypto.subtle`.
 
 `scripts/smoke.mjs` mounts all 201 tools and every page in jsdom, then asserts:
 
@@ -148,6 +173,12 @@ Copy `.env.example` to `.env` for local testing if needed. Keep real secrets out
 - `el()` assigns `value` / `checked` as DOM properties, not attributes
 - the CSV viewer renders an editable table inside a scroll wrapper
 - no stat tile is handed a value too long for its box
+- SHA-1/256/512 match `node:crypto` on **both** the Web Crypto path and the pure-JS fallback, across every block-boundary length
+- file checksums digest the actual bytes (two different files must not collide)
+- the colour parser reads hex, `rgb()`, `hsl()` and CSS names, and rejects junk
+- the QR pipeline round-trips — a payload is encoded, rendered to raw pixels and decoded back to the same text
+- the vendored libraries genuinely work: pdf-lib emits a real `%PDF-` document, marked/turndown/beautifiers produce correct output
+- no tool pulls a library from a CDN, no tool calls `getContext` without the null-safe helper, and no handler reads `e.currentTarget` after an `await`
 
 `scripts/audit-overflow.mjs` runs a small layout model over every tool at seven viewport widths (360 → 1440). It estimates text advance widths per character, compares them against the width the real CSS gives each container, and reports two levels:
 
@@ -164,6 +195,8 @@ public/                      logo, PWA files, sitemap, robots
 scripts/gen-sitemap.mjs      sitemap generator (derived from the catalog)
 scripts/smoke.mjs            smoke tests for tools + pages + count drift
 scripts/audit-overflow.mjs   text-fit layout auditor
+scripts/audit-tools.mjs      deep tool auditor (healthy + hostile passes)
+scripts/jsdom-env.mjs        shared jsdom environment for both auditors
 src/ai/                      chat UI + local knowledge brain
 src/data/catalog.js          all tool records + TOOL_COUNT
 src/data/guides.js           guides + glossary
@@ -174,6 +207,7 @@ src/prefs.js                 favourites, theme, recent history, feedback
 src/seo.js                   dynamic meta tags + JSON-LD
 src/tools/                   tool implementations by shelf
 src/tools/extras.js          the 2026 batch (26 tools)
+src/tools/libs.js            vendored third-party libraries (lazy chunks)
 src/tools/formkit.js         declarative fields + compute engine
 src/styles/                  design system, hero/tool pages, product layer
 ```

@@ -374,8 +374,251 @@ export function md5(str) {
   return rhex(out[0]) + rhex(out[1]) + rhex(out[2]) + rhex(out[3]);
 }
 
-export async function shaDigest(text, algo) {
-  const data = new TextEncoder().encode(text);
-  const buf = await crypto.subtle.digest(algo, data);
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+/* ── SHA-1 / SHA-256 / SHA-512 ──────────────────────────────────────────
+   Web Crypto first, with a pure-JS fallback.
+
+   crypto.subtle only exists in a secure context. Open the site over plain HTTP
+   (a LAN IP, a dev box on a phone) and it is undefined, so hashing used to die
+   with an unhandled rejection. MD5 already ships a JS implementation for the
+   same reason, so these do too. */
+
+/* SHA-512 round constants — the first 64 bits of the fractional parts of the
+   cube roots of the first 80 primes. SHA-256's constants are the same values
+   truncated to 32 bits, so they are derived rather than duplicated. */
+const K512_HEX = [
+  '428a2f98d728ae22', '7137449123ef65cd', 'b5c0fbcfec4d3b2f', 'e9b5dba58189dbbc',
+  '3956c25bf348b538', '59f111f1b605d019', '923f82a4af194f9b', 'ab1c5ed5da6d8118',
+  'd807aa98a3030242', '12835b0145706fbe', '243185be4ee4b28c', '550c7dc3d5ffb4e2',
+  '72be5d74f27b896f', '80deb1fe3b1696b1', '9bdc06a725c71235', 'c19bf174cf692694',
+  'e49b69c19ef14ad2', 'efbe4786384f25e3', '0fc19dc68b8cd5b5', '240ca1cc77ac9c65',
+  '2de92c6f592b0275', '4a7484aa6ea6e483', '5cb0a9dcbd41fbd4', '76f988da831153b5',
+  '983e5152ee66dfab', 'a831c66d2db43210', 'b00327c898fb213f', 'bf597fc7beef0ee4',
+  'c6e00bf33da88fc2', 'd5a79147930aa725', '06ca6351e003826f', '142929670a0e6e70',
+  '27b70a8546d22ffc', '2e1b21385c26c926', '4d2c6dfc5ac42aed', '53380d139d95b3df',
+  '650a73548baf63de', '766a0abb3c77b2a8', '81c2c92e47edaee6', '92722c851482353b',
+  'a2bfe8a14cf10364', 'a81a664bbc423001', 'c24b8b70d0f89791', 'c76c51a30654be30',
+  'd192e819d6ef5218', 'd69906245565a910', 'f40e35855771202a', '106aa07032bbd1b8',
+  '19a4c116b8d2d0c8', '1e376c085141ab53', '2748774cdf8eeb99', '34b0bcb5e19b48a8',
+  '391c0cb3c5c95a63', '4ed8aa4ae3418acb', '5b9cca4f7763e373', '682e6ff3d6b2b8a3',
+  '748f82ee5defb2fc', '78a5636f43172f60', '84c87814a1f0ab72', '8cc702081a6439ec',
+  '90befffa23631e28', 'a4506cebde82bde9', 'bef9a3f7b2c67915', 'c67178f2e372532b',
+  'ca273eceea26619c', 'd186b8c721c0c207', 'eada7dd6cde0eb1e', 'f57d4f7fee6ed178',
+  '06f067aa72176fba', '0a637dc5a2c898a6', '113f9804bef90dae', '1b710b35131c471b',
+  '28db77f523047d84', '32caab7b40c72493', '3c9ebe0a15c9bebc', '431d67c49c100d4c',
+  '4cc5d4becb3e42b6', '597f299cfc657e2a', '5fcb6fab3ad6faec', '6c44198c4a475817',
+];
+const K256 = K512_HEX.slice(0, 64).map((h) => h.slice(0, 8));
+
+const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+
+/** Append the 0x80 marker, zero-pad, then the big-endian bit length. */
+function padMessage(bytes, block) {
+  /* The length field is 64 bits for SHA-1/256 and 128 bits for SHA-512, so the
+     reserved tail differs per block size — get this wrong and an input that
+     happens to land exactly on a block boundary gains a spurious zero block. */
+  const lenField = block / 8;
+  const len = Math.ceil((bytes.length + 1 + lenField) / block) * block;
+  const out = new Uint8Array(len);
+  out.set(bytes);
+  out[bytes.length] = 0x80;
+  const bits = bytes.length * 8;
+  const dv = new DataView(out.buffer);
+  /* Only the low 64 bits are ever non-zero for browser-sized input; the upper
+     half of a SHA-512 length field stays zero from the allocation above. */
+  dv.setUint32(len - 8, Math.floor(bits / 4294967296) >>> 0, false);
+  dv.setUint32(len - 4, bits >>> 0, false);
+  return out;
 }
+
+function sha1(bytes) {
+  const msg = padMessage(bytes, 64);
+  const dv = new DataView(msg.buffer);
+  let h0 = 0x67452301, h1 = 0xefcdab89, h2 = 0x98badcfe, h3 = 0x10325476, h4 = 0xc3d2e1f0;
+  const w = new Uint32Array(80);
+  for (let off = 0; off < msg.length; off += 64) {
+    for (let i = 0; i < 16; i++) w[i] = dv.getUint32(off + i * 4, false);
+    for (let i = 16; i < 80; i++) w[i] = ((w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16]) << 1) | ((w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16]) >>> 31);
+    let a = h0, b = h1, c = h2, d = h3, e = h4;
+    for (let i = 0; i < 80; i++) {
+      let f, k;
+      if (i < 20) { f = (b & c) | (~b & d); k = 0x5a827999; }
+      else if (i < 40) { f = b ^ c ^ d; k = 0x6ed9eba1; }
+      else if (i < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8f1bbcdc; }
+      else { f = b ^ c ^ d; k = 0xca62c1d6; }
+      const t = (((a << 5) | (a >>> 27)) + f + e + k + w[i]) >>> 0;
+      e = d; d = c; c = ((b << 30) | (b >>> 2)) >>> 0; b = a; a = t;
+    }
+    h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0; h4 = (h4 + e) >>> 0;
+  }
+  return [h0, h1, h2, h3, h4].map((x) => x.toString(16).padStart(8, '0')).join('');
+}
+
+function sha256(bytes) {
+  const msg = padMessage(bytes, 64);
+  const dv = new DataView(msg.buffer);
+  const H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+  const w = new Uint32Array(64);
+  for (let off = 0; off < msg.length; off += 64) {
+    for (let i = 0; i < 16; i++) w[i] = dv.getUint32(off + i * 4, false);
+    for (let i = 16; i < 64; i++) {
+      const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+      const s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+    }
+    let [a, b, c, d, e, f, g, h] = H;
+    for (let i = 0; i < 64; i++) {
+      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+      const ch = (e & f) ^ (~e & g);
+      const t1 = (h + S1 + ch + parseInt(K256[i], 16) + w[i]) >>> 0;
+      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + maj) >>> 0;
+      h = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+    }
+    H[0] = (H[0] + a) >>> 0; H[1] = (H[1] + b) >>> 0; H[2] = (H[2] + c) >>> 0; H[3] = (H[3] + d) >>> 0;
+    H[4] = (H[4] + e) >>> 0; H[5] = (H[5] + f) >>> 0; H[6] = (H[6] + g) >>> 0; H[7] = (H[7] + h) >>> 0;
+  }
+  return H.map((x) => x.toString(16).padStart(8, '0')).join('');
+}
+
+function sha512(bytes) {
+  /* 64-bit words as [hi, lo] 32-bit pairs — JS has no native 64-bit int. */
+  const msg = padMessage(bytes, 128);
+  const dv = new DataView(msg.buffer);
+  const H = [
+    [0x6a09e667, 0xf3bcc908], [0xbb67ae85, 0x84caa73b], [0x3c6ef372, 0xfe94f82b], [0xa54ff53a, 0x5f1d36f1],
+    [0x510e527f, 0xade682d1], [0x9b05688c, 0x2b3e6c1f], [0x1f83d9ab, 0xfb41bd6b], [0x5be0cd19, 0x137e2179],
+  ];
+  const K = K512_HEX.map((h) => [parseInt(h.slice(0, 8), 16), parseInt(h.slice(8), 16)]);
+  const w = Array.from({ length: 80 }, () => [0, 0]);
+  const add = (ah, al, bh, bl) => {
+    const lo = (al + bl) >>> 0;
+    return [(ah + bh + (lo < al >>> 0 ? 1 : 0)) >>> 0, lo];
+  };
+  const rotr64 = (h, l, n) => (n < 32
+    ? [((h >>> n) | (l << (32 - n))) >>> 0, ((l >>> n) | (h << (32 - n))) >>> 0]
+    : [((l >>> (n - 32)) | (h << (64 - n))) >>> 0, ((h >>> (n - 32)) | (l << (64 - n))) >>> 0]);
+  const shr64 = (h, l, n) => (n < 32 ? [(h >>> n) >>> 0, ((l >>> n) | (h << (32 - n))) >>> 0] : [0, (h >>> (n - 32)) >>> 0]);
+
+  for (let off = 0; off < msg.length; off += 128) {
+    for (let i = 0; i < 16; i++) { w[i][0] = dv.getUint32(off + i * 8, false); w[i][1] = dv.getUint32(off + i * 8 + 4, false); }
+    for (let i = 16; i < 80; i++) {
+      const [a15h, a15l] = w[i - 15], [a2h, a2l] = w[i - 2];
+      const s0 = [rotr64(a15h, a15l, 1)[0] ^ rotr64(a15h, a15l, 8)[0] ^ shr64(a15h, a15l, 7)[0],
+        rotr64(a15h, a15l, 1)[1] ^ rotr64(a15h, a15l, 8)[1] ^ shr64(a15h, a15l, 7)[1]];
+      const s1 = [rotr64(a2h, a2l, 19)[0] ^ rotr64(a2h, a2l, 61)[0] ^ shr64(a2h, a2l, 6)[0],
+        rotr64(a2h, a2l, 19)[1] ^ rotr64(a2h, a2l, 61)[1] ^ shr64(a2h, a2l, 6)[1]];
+      w[i] = add(...add(w[i - 16][0], w[i - 16][1], s0[0], s0[1]), w[i - 7][0], w[i - 7][1]);
+      w[i] = add(w[i][0], w[i][1], s1[0], s1[1]);
+    }
+    let [ah, al] = H[0], [bh, bl] = H[1], [ch, cl] = H[2], [dh, dl] = H[3];
+    let [eh, el] = H[4], [fh, fl] = H[5], [gh, gl] = H[6], [hh, hl] = H[7];
+    for (let i = 0; i < 80; i++) {
+      const S1 = [rotr64(eh, el, 14)[0] ^ rotr64(eh, el, 18)[0] ^ rotr64(eh, el, 41)[0],
+        rotr64(eh, el, 14)[1] ^ rotr64(eh, el, 18)[1] ^ rotr64(eh, el, 41)[1]];
+      const choose = [(eh & fh) ^ (~eh & gh), (el & fl) ^ (~el & gl)];
+      const t1 = add(...add(hh, hl, S1[0], S1[1]), choose[0], choose[1]);
+      const t1b = add(...add(t1[0], t1[1], K[i][0], K[i][1]), w[i][0], w[i][1]);
+      const S0 = [rotr64(ah, al, 28)[0] ^ rotr64(ah, al, 34)[0] ^ rotr64(ah, al, 39)[0],
+        rotr64(ah, al, 28)[1] ^ rotr64(ah, al, 34)[1] ^ rotr64(ah, al, 39)[1]];
+      const maj = [(ah & bh) ^ (ah & ch) ^ (bh & ch), (al & bl) ^ (al & cl) ^ (bl & cl)];
+      const t2 = add(S0[0], S0[1], maj[0], maj[1]);
+      hh = gh; hl = gl; gh = fh; gl = fl; fh = eh; fl = el;
+      [eh, el] = add(dh, dl, t1b[0], t1b[1]);
+      dh = ch; dl = cl; ch = bh; cl = bl; bh = ah; bl = al;
+      [ah, al] = add(t1b[0], t1b[1], t2[0], t2[1]);
+    }
+    H[0] = add(H[0][0], H[0][1], ah, al); H[1] = add(H[1][0], H[1][1], bh, bl);
+    H[2] = add(H[2][0], H[2][1], ch, cl); H[3] = add(H[3][0], H[3][1], dh, dl);
+    H[4] = add(H[4][0], H[4][1], eh, el); H[5] = add(H[5][0], H[5][1], fh, fl);
+    H[6] = add(H[6][0], H[6][1], gh, gl); H[7] = add(H[7][0], H[7][1], hh, hl);
+  }
+  return H.map(([h, l]) => (h >>> 0).toString(16).padStart(8, '0') + (l >>> 0).toString(16).padStart(8, '0')).join('');
+}
+
+/* ── Colour parsing ─────────────────────────────────────────────────────
+   Normalising a colour used to rely on assigning it to canvas.fillStyle and
+   reading it back. That silently reports black for anything the browser
+   rejects, and does nothing at all when there is no 2D context. Parsing it
+   directly is deterministic and needs no canvas. */
+
+const NAMED_COLOURS = {
+  black: '000000', white: 'ffffff', red: 'ff0000', green: '008000', lime: '00ff00', blue: '0000ff',
+  yellow: 'ffff00', cyan: '00ffff', aqua: '00ffff', magenta: 'ff00ff', fuchsia: 'ff00ff',
+  silver: 'c0c0c0', gray: '808080', grey: '808080', maroon: '800000', olive: '808000',
+  purple: '800080', teal: '008080', navy: '000080', orange: 'ffa500', orangered: 'ff4500',
+  pink: 'ffc0cb', hotpink: 'ff69b4', brown: 'a52a2a', gold: 'ffd700', coral: 'ff7f50',
+  salmon: 'fa8072', tomato: 'ff6347', crimson: 'dc143c', indigo: '4b0082', violet: 'ee82ee',
+  plum: 'dda0dd', orchid: 'da70d6', khaki: 'f0e68c', ivory: 'fffff0', beige: 'f5f5dc',
+  turquoise: '40e0d0', skyblue: '87ceeb', steelblue: '4682b4', slategray: '708090',
+  seagreen: '2e8b57', forestgreen: '228b22', darkgreen: '006400', darkblue: '00008b',
+  darkred: '8b0000', darkgray: 'a9a9a9', lightgray: 'd3d3d3', lightblue: 'add8e6',
+  mintcream: 'f5fffa', lavender: 'e6e6fa', wheat: 'f5deb3', tan: 'd2b48c', chocolate: 'd2691e',
+};
+
+const byte = (n) => Math.max(0, Math.min(255, Math.round(n)));
+
+function hslToRgb(h, s, l) {
+  const hh = ((Number(h) % 360) + 360) % 360 / 360;
+  const ss = Math.max(0, Math.min(100, Number(s))) / 100;
+  const ll = Math.max(0, Math.min(100, Number(l))) / 100;
+  if (!ss) { const v = byte(ll * 255); return { r: v, g: v, b: v }; }
+  const q = ll < 0.5 ? ll * (1 + ss) : ll + ss - ll * ss;
+  const p = 2 * ll - q;
+  const conv = (t) => {
+    if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  return { r: byte(conv(hh + 1 / 3) * 255), g: byte(conv(hh) * 255), b: byte(conv(hh - 1 / 3) * 255) };
+}
+
+/** Parse `#rgb`, `#rrggbb(aa)`, `rgb()`, `hsl()` or a common CSS name → `{r,g,b}` or null. */
+export function parseColour(input) {
+  const s = String(input ?? '').trim().toLowerCase();
+  if (!s) return null;
+  const fromHex = (h) => ({ r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) });
+  if (s[0] === '#') {
+    const h = s.slice(1);
+    if (/^[0-9a-f]{3}$/.test(h)) return fromHex(h.split('').map((c) => c + c).join(''));
+    if (/^[0-9a-f]{6}$/.test(h) || /^[0-9a-f]{8}$/.test(h)) return fromHex(h);
+    return null;
+  }
+  if (NAMED_COLOURS[s]) return fromHex(NAMED_COLOURS[s]);
+  const nums = (s.match(/-?\d*\.?\d+/g) || []).map(Number);
+  if (/^rgba?\(/.test(s) && nums.length >= 3) return { r: byte(nums[0]), g: byte(nums[1]), b: byte(nums[2]) };
+  if (/^hsla?\(/.test(s) && nums.length >= 3) return hslToRgb(nums[0], nums[1], nums[2]);
+  if (nums.length === 3 && /^[\d\s,.]+$/.test(s)) return { r: byte(nums[0]), g: byte(nums[1]), b: byte(nums[2]) };
+  return null;
+}
+
+/** `#rrggbb` for any `{r,g,b}`. */
+export const rgbToHex = ({ r, g, b }) => '#' + [r, g, b].map((n) => byte(n).toString(16).padStart(2, '0')).join('');
+
+const JS_HASH = { 'SHA-1': sha1, 'SHA-256': sha256, 'SHA-512': sha512 };
+
+/** Normalise a string / ArrayBuffer / typed array into bytes. */
+function toBytes(input) {
+  if (typeof input === 'string') return new TextEncoder().encode(input);
+  if (input instanceof Uint8Array) return input;
+  if (input instanceof ArrayBuffer) return new Uint8Array(input);
+  if (ArrayBuffer.isView(input)) return new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
+  /* Anything else would previously be stringified to "[object ArrayBuffer]" and
+     hashed as that literal text — every file came out with the same checksum. */
+  throw new TypeError(`cannot hash a ${typeof input}`);
+}
+
+export async function shaDigest(input, algo) {
+  const data = toBytes(input);
+  const subtle = globalThis.crypto?.subtle;
+  if (subtle?.digest) {
+    const buf = await subtle.digest(algo, data);
+    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  const js = JS_HASH[String(algo).toUpperCase()];
+  if (!js) throw new Error(`${algo} is not available without Web Crypto`);
+  return js(data);
+}
+

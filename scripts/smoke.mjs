@@ -62,17 +62,12 @@ try {
     Object.defineProperty(window.crypto, 'randomUUID', { value: () => '00000000-0000-4000-8000-000000000000', configurable: true });
   }
 } catch { /* ok */ }
+/* jsdom ships no SubtleCrypto. Borrow Node's real one rather than faking it:
+   a stub that returns zero bytes made every digest test vacuous. */
 try {
   if (!window.crypto.subtle) {
-    Object.defineProperty(window.crypto, 'subtle', {
-      value: {
-        digest: async (algo, data) => {
-          const len = algo.includes('512') ? 64 : algo.includes('256') ? 32 : 20;
-          return new Uint8Array(len).buffer;
-        },
-      },
-      configurable: true,
-    });
+    const { webcrypto } = await import('node:crypto');
+    Object.defineProperty(window.crypto, 'subtle', { value: webcrypto.subtle, configurable: true });
   }
 } catch { /* ok */ }
 def('crypto', window.crypto);
@@ -383,6 +378,198 @@ await test('long result values are shaped for their containers', async () => {
     host.remove();
   }
   if (offenders.length) throw new Error(offenders.slice(0, 5).join('; '));
+});
+
+console.log('\n— Vendored libraries —');
+await test('QR pipeline round-trips: encode then decode the same payload', async () => {
+  const { loadQr, loadJsQr } = await import('../src/tools/libs.js');
+  const qr = await loadQr();
+  const jsQR = await loadJsQr();
+  const payload = 'PSDKIT round trip 2026';
+  /* Render the bit matrix by hand so this needs no canvas backend. */
+  const created = qr.create(payload, { errorCorrectionLevel: 'M' });
+  const size = created.modules.size;
+  const scale = 4, quiet = 4;
+  const dim = (size + quiet * 2) * scale;
+  const pixels = new Uint8ClampedArray(dim * dim * 4).fill(255);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if (!created.modules.data[y * size + x]) continue;
+      for (let dy = 0; dy < scale; dy++) {
+        for (let dx = 0; dx < scale; dx++) {
+          const i = (((y + quiet) * scale + dy) * dim + ((x + quiet) * scale + dx)) * 4;
+          pixels[i] = pixels[i + 1] = pixels[i + 2] = 0;
+        }
+      }
+    }
+  }
+  const decoded = jsQR(pixels, dim, dim);
+  if (decoded?.data !== payload) throw new Error(`decoded "${decoded?.data}" instead of "${payload}"`);
+  const svg = await qr.toString(payload, { type: 'svg' });
+  if (!svg.includes('<svg')) throw new Error('qr.toString produced no SVG');
+});
+
+await test('vendored libraries really work, not just import', async () => {
+  const libs = await import('../src/tools/libs.js');
+  const { PDFDocument, StandardFonts } = await libs.loadPdfLib();
+  const doc = await PDFDocument.create();
+  const page = doc.addPage([220, 120]);
+  page.drawText('PSDKIT', { x: 20, y: 60, size: 20, font: await doc.embedFont(StandardFonts.Helvetica) });
+  const pdf = await doc.save();
+  if (pdf.length < 400) throw new Error(`pdf-lib produced a ${pdf.length}-byte document`);
+  if (String.fromCharCode(...pdf.slice(0, 5)) !== '%PDF-') throw new Error('output is not a PDF');
+
+  const marked = await libs.loadMarked();
+  if (!marked.parse('# Title\n\n**bold**').includes('<h1')) throw new Error('marked did not render a heading');
+
+  const TurndownService = await libs.loadTurndown();
+  if (!new TurndownService({ headingStyle: 'atx' }).turndown('<h1>Title</h1>').includes('# Title')) {
+    throw new Error('turndown did not produce markdown');
+  }
+
+  if (!(await libs.loadHtmlBeautify())('<div><p>x</p></div>').includes('<p>')) throw new Error('html beautifier failed');
+  if (!(await libs.loadCssBeautify())('.a{color:red}').includes('color')) throw new Error('css beautifier failed');
+  if (!(await libs.loadJsBeautify())('const x=1;').includes('const')) throw new Error('js beautifier failed');
+
+  const pdfjs = await libs.loadPdfJs();
+  if (typeof pdfjs.getDocument !== 'function') throw new Error('pdf.js did not expose getDocument');
+  /* workerSrc is set from a bundler `?url` asset; under plain Node there is no
+     such asset and pdf.js falls back to main-thread decoding. */
+});
+
+console.log('\n— Correctness regressions —');
+await test('SHA digests match node:crypto on both the native and JS paths', async () => {
+  const { createHash } = await import('node:crypto');
+  const { shaDigest } = await import('../src/tools/formkit.js');
+  const algos = [['SHA-1', 'sha1'], ['SHA-256', 'sha256'], ['SHA-512', 'sha512']];
+  const inputs = ['', 'abc', 'hello world', 'नमस्ते दुनिया', 'a'.repeat(1000)];
+  /* Every block-boundary length: SHA-1/256 pad at 55/56/63/64, SHA-512 at 111/112/127/128. */
+  for (const n of [0, 1, 55, 56, 63, 64, 65, 111, 112, 119, 120, 127, 128, 129, 200]) {
+    const b = new Uint8Array(n);
+    for (let i = 0; i < n; i++) b[i] = (i * 37 + n * 11) & 0xff;
+    inputs.push(b);
+  }
+  const native = window.crypto.subtle;
+  const setSubtle = (value) => Object.defineProperty(window.crypto, 'subtle', { value, configurable: true });
+  let checked = 0;
+  for (const [label, subtle] of [['native', native], ['JS fallback', undefined]]) {
+    if (label === 'native' && !subtle) continue;
+    setSubtle(subtle);
+    for (const input of inputs) {
+      for (const [name, nodeName] of algos) {
+        const bytes = typeof input === 'string' ? Buffer.from(input, 'utf8') : Buffer.from(input);
+        const want = createHash(nodeName).update(bytes).digest('hex');
+        const got = await shaDigest(input, name);
+        checked++;
+        if (got !== want) {
+          setSubtle(native);
+          const what = typeof input === 'string' ? JSON.stringify(input.slice(0, 16)) : `${input.length} bytes`;
+          throw new Error(`${name} (${label}) wrong for ${what}: got ${got.slice(0, 16)}…, want ${want.slice(0, 16)}…`);
+        }
+      }
+    }
+  }
+  setSubtle(native);
+  if (checked < 100) throw new Error(`only ${checked} digests verified — the fallback path was skipped`);
+});
+
+await test('file checksums digest the bytes, not a stringified buffer', async () => {
+  /* readFileAs(file,'buffer') returns an ArrayBuffer. Encoding one with
+     TextEncoder coerces it to "[object ArrayBuffer]", so every file on earth
+     hashed to the same value. */
+  const { createHash } = await import('node:crypto');
+  const { shaDigest } = await import('../src/tools/formkit.js');
+  const a = new Uint8Array([1, 2, 3, 4, 5]);
+  const b = new Uint8Array([9, 8, 7, 6, 5]);
+  const ha = await shaDigest(a.buffer, 'SHA-256');
+  const hb = await shaDigest(b.buffer, 'SHA-256');
+  if (ha === hb) throw new Error('two different files produced the same checksum');
+  if (ha !== createHash('sha256').update(a).digest('hex')) throw new Error('ArrayBuffer path does not match the real digest');
+  if (ha === '17bf4b46701313ea8fbaf838c24b8647d39bff0a9d2b45f403cb72ba420bd4bd') {
+    throw new Error('hashing the literal text "[object ArrayBuffer]" again');
+  }
+});
+
+await test('colour parser reads hex, rgb, hsl and names', async () => {
+  const { parseColour, rgbToHex } = await import('../src/tools/formkit.js');
+  const cases = [['#DE5D35', '#de5d35'], ['#abc', '#aabbcc'], ['rgb(222,93,53)', '#de5d35'],
+    ['rgba(1,2,3,0.5)', '#010203'], ['hsl(14,72%,54%)', '#de5d35'], ['hsl(0,100%,50%)', '#ff0000'],
+    ['tomato', '#ff6347'], ['black', '#000000'], ['222, 93, 53', '#de5d35']];
+  for (const [input, want] of cases) {
+    const rgb = parseColour(input);
+    if (!rgb) throw new Error(`"${input}" did not parse`);
+    const got = rgbToHex(rgb);
+    if (got !== want) throw new Error(`"${input}" → ${got}, expected ${want}`);
+  }
+  for (const junk of ['', 'nonsense', '#gggggg', 'rgb(1,2)']) {
+    if (parseColour(junk)) throw new Error(`"${junk}" should not parse as a colour`);
+  }
+});
+
+await test('copy button confirms after awaiting the clipboard', async () => {
+  /* e.currentTarget is nulled the moment dispatch finishes, so reading it after
+     an await threw and the button never said "Copied!". */
+  const { copyButton } = await import('../src/ui.js');
+  const btn = copyButton('payload', 'Copy');
+  document.body.append(btn);
+  btn.click();
+  await new Promise((r) => setTimeout(r, 20));
+  const span = btn.querySelector('span');
+  btn.remove();
+  if (span.textContent !== 'Copied!') throw new Error(`label stayed "${span.textContent}" — the handler threw after its await`);
+});
+
+console.log('\n— Dependency guards —');
+await test('tool libraries are vendored, never pulled from a CDN', async () => {
+  /* The QR tools died with "Failed to load https://cdn.jsdelivr.net/…" whenever
+     the CDN was unreachable. Every library now ships in our own bundle. */
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const offenders = [];
+  for (const f of readdirSync('src/tools')) {
+    if (!f.endsWith('.js')) continue;
+    const src = readFileSync(`src/tools/${f}`, 'utf8');
+    for (const m of src.matchAll(/https:\/\/(?:cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|unpkg\.com)[^\s'"`]*/g)) {
+      offenders.push(`src/tools/${f}: ${m[0]}`);
+    }
+    if (/\bloadScript\s*\(/.test(src) && f !== 'libs.js') {
+      offenders.push(`src/tools/${f}: still injects a remote <script>`);
+    }
+  }
+  if (offenders.length) throw new Error(offenders.join('; '));
+});
+
+await test('canvas contexts go through the null-safe helper', async () => {
+  /* getContext('2d') returns null rather than throwing when the browser has no
+     2D backend, which used to surface as "Cannot read properties of null". */
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const offenders = [];
+  for (const dir of ['src/tools', 'src/pages']) {
+    for (const f of readdirSync(dir)) {
+      if (!f.endsWith('.js')) continue;
+      const src = readFileSync(`${dir}/${f}`, 'utf8');
+      for (const m of src.matchAll(/\.getContext\s*\(/g)) offenders.push(`${dir}/${f}:${src.slice(0, m.index).split('\n').length}`);
+    }
+  }
+  if (offenders.length) throw new Error(`call getContext via ctx2d()/requireCtx() instead — ${offenders.join(', ')}`);
+});
+
+await test('no handler reads currentTarget after an await', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const offenders = [];
+  const walk = (dir) => {
+    for (const f of readdirSync(dir)) {
+      if (!f.endsWith('.js')) continue;
+      const path = `${dir}/${f}`;
+      const lines = readFileSync(path, 'utf8').split('\n');
+      lines.forEach((line, i) => {
+        if (!line.includes('currentTarget')) return;
+        const before = lines.slice(Math.max(0, i - 3), i + 1).join('\n');
+        if (/\bawait\b/.test(before)) offenders.push(`${path}:${i + 1}`);
+      });
+    }
+  };
+  walk('src/tools'); walk('src/pages'); walk('src/ai');
+  if (offenders.length) throw new Error(`currentTarget is null after an await — capture the element first (${offenders.join(', ')})`);
 });
 
 console.log(`\n${successes} passed, ${failures} failed\n`);

@@ -2,9 +2,10 @@
    CODING & LEARN TOOLS (50) — formatters, converters, playgrounds,
    cheatsheets, plus word meaning / translator / thesaurus.
    ============================================================ */
-import { el, fmt, copyText, toast, loadScript, debounce, copyButton, downloadFile } from '../ui.js';
+import { el, fmt, copyText, toast, debounce, copyButton, downloadFile, ctx2d } from '../ui.js';
+import { loadHtmlBeautify, loadCssBeautify, loadJsBeautify, loadMarked, loadTurndown } from './libs.js';
 import { icon } from '../icons.js';
-import { mountFormTool, num, wordsCapitalise, renderResult } from './formkit.js';
+import { mountFormTool, num, wordsCapitalise, renderResult, parseColour, rgbToHex } from './formkit.js';
 import { TOOL_COUNT } from '../data/catalog.js';
 
 /* ── shared: searchable reference mount (cheatsheets & tables) ── */
@@ -886,8 +887,7 @@ export const CODING_IMPLS = {
           text: min,
         };
       }
-      await loadScript('https://cdn.jsdelivr.net/npm/js-beautify@1.15.1/js/lib/beautify-html.min.js');
-      const pretty = window.html_beautify(v.code, { indent_size: 2, wrap_line_length: 0 });
+      const pretty = (await loadHtmlBeautify())(v.code, { indent_size: 2, wrap_line_length: 0 });
       return {
         title: 'Formatted HTML',
         html: `<pre class="code" style="max-height:420px;overflow:auto">${pretty.replace(/</g, '&lt;')}</pre>`,
@@ -916,8 +916,7 @@ export const CODING_IMPLS = {
           text: min,
         };
       }
-      await loadScript('https://cdn.jsdelivr.net/npm/js-beautify@1.15.1/js/lib/beautify-css.min.js');
-      const pretty = window.css_beautify(v.code, { indent_size: 2 });
+      const pretty = (await loadCssBeautify())(v.code, { indent_size: 2 });
       return {
         title: 'Formatted CSS',
         html: `<pre class="code">${pretty.replace(/</g, '&lt;')}</pre>`,
@@ -947,8 +946,7 @@ export const CODING_IMPLS = {
           note: 'This lightweight minifier strips comments and excess whitespace. For production, use esbuild or Terser.',
         };
       }
-      await loadScript('https://cdn.jsdelivr.net/npm/js-beautify@1.15.1/js/lib/beautify.min.js');
-      const pretty = window.js_beautify(v.code, { indent_size: 2 });
+      const pretty = (await loadJsBeautify())(v.code, { indent_size: 2 });
       return {
         title: 'Formatted JavaScript',
         html: `<pre class="code" style="max-height:420px;overflow:auto">${pretty.replace(/</g, '&lt;')}</pre>`,
@@ -987,8 +985,7 @@ export const CODING_IMPLS = {
         },
       });
       const render = debounce(async () => {
-        await loadScript('https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js');
-        preview.innerHTML = window.marked.parse(ta.value);
+        preview.innerHTML = (await loadMarked()).parse(ta.value);
       }, 300);
       ta.addEventListener('input', render);
       container.append(
@@ -1000,8 +997,7 @@ export const CODING_IMPLS = {
           el('button.btn.btn-soft', {
             html: `${icon('copy', 15)} Copy rendered HTML`,
             onclick: async () => {
-              await loadScript('https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js');
-              copyText(window.marked.parse(ta.value));
+              copyText((await loadMarked()).parse(ta.value));
             },
           }),
         ),
@@ -1017,8 +1013,7 @@ export const CODING_IMPLS = {
       ta.value = '# Title\n\nA paragraph with **bold** text and a [link](https://example.com).';
       const out = el('div');
       const toHTML = async () => {
-        await loadScript('https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js');
-        const html = window.marked.parse(ta.value);
+        const html = (await loadMarked()).parse(ta.value);
         out.innerHTML = '';
         out.append(el('div.result-card',
           el('div.result-head', el('span.result-title', { text: 'HTML output' }), copyButton(html)),
@@ -1026,8 +1021,8 @@ export const CODING_IMPLS = {
         ));
       };
       const toMD = async () => {
-        await loadScript('https://cdn.jsdelivr.net/npm/turndown@7.2.0/dist/turndown.js');
-        const md = new window.TurndownService({ headingStyle: 'atx' }).turndown(ta.value);
+        const TurndownService = await loadTurndown();
+        const md = new TurndownService({ headingStyle: 'atx' }).turndown(ta.value);
         out.innerHTML = '';
         out.append(el('div.result-card',
           el('div.result-head', el('span.result-title', { text: 'Markdown output' }), copyButton(md)),
@@ -1590,14 +1585,24 @@ export const CODING_IMPLS = {
       { id: 'custom', label: 'Or type HEX / RGB / HSL', type: 'text', default: '', placeholder: '#DE5D35 · rgb(222,93,53) · hsl(14,72%,54%)' },
     ],
     compute(v) {
-      const canvas = document.createElement('canvas').getContext('2d');
-      let src = (v.custom || '').trim() || v.color;
-      canvas.fillStyle = '#000';
-      canvas.fillStyle = src;
-      const hex = canvas.fillStyle.startsWith('#') ? canvas.fillStyle : '#' + [...src.matchAll(/\d+/g)].slice(0, 3).map((m) => Number(m[0]).toString(16).padStart(2, '0')).join('');
-      canvas.fillStyle = hex;
-      const hexNorm = canvas.fillStyle;
-      const r = parseInt(hexNorm.slice(1, 3), 16), g = parseInt(hexNorm.slice(3, 5), 16), b = parseInt(hexNorm.slice(5, 7), 16);
+      const src = ((v.custom || '').trim() || v.color || '').trim();
+      /* Parse first — deterministic, and it works with no canvas at all. The
+         canvas round-trip is only a fallback for CSS names outside our table.
+         The old code did it the other way round, so an unrecognised colour kept
+         the previous fillStyle and was reported as black instead of rejected. */
+      let rgb = parseColour(src);
+      if (!rgb) {
+        const ctx = ctx2d(document.createElement('canvas'));
+        if (ctx) {
+          ctx.fillStyle = '#123456'; // sentinel that is itself a valid colour
+          ctx.fillStyle = src;
+          const got = ctx.fillStyle;
+          if (got !== '#123456') rgb = parseColour(got);
+        }
+      }
+      if (!rgb) return `Could not read "${src || '(empty)'}" as a colour. Try #DE5D35, rgb(222,93,53), hsl(14,72%,54%) or a name like tomato.`;
+      const { r, g, b } = rgb;
+      const hexNorm = rgbToHex(rgb);
       const max = Math.max(r, g, b) / 255, min = Math.min(r, g, b) / 255;
       const l = (max + min) / 2, d = max - min;
       const s = d ? (l > 0.5 ? d / (2 - max - min) : d / (max + min)) : 0;

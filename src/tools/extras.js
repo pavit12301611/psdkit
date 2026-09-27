@@ -4,7 +4,7 @@
    Every tool here is self-contained: no new dependencies, no
    network calls unless a tool clearly says so.
    ============================================================ */
-import { el, fmt, copyText, toast, downloadFile, readFileAs, dropZone, debounce, copyButton } from '../ui.js';
+import { el, fmt, copyText, toast, downloadFile, readFileAs, dropZone, debounce, copyButton, ctx2d, canvasNotice } from '../ui.js';
 import { icon } from '../icons.js';
 import { num } from './formkit.js';
 
@@ -851,7 +851,8 @@ export const EXTRA_IMPLS = {
 
       function render() {
         if (!source) return;
-        const ctx = canvas.getContext('2d');
+        const ctx = ctx2d(canvas);
+        if (!ctx) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
         const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -956,7 +957,8 @@ export const EXTRA_IMPLS = {
       const draw = (size) => {
         const c = document.createElement('canvas');
         c.width = size; c.height = size;
-        const ctx = c.getContext('2d');
+        const ctx = ctx2d(c);
+        if (!ctx) return null;
         const pad = Math.round(size * (Number(padIn.value) / 100));
         const radius = Math.round(size * (Number(roundIn.value) / 100));
         ctx.fillStyle = bgIn.value;
@@ -975,8 +977,10 @@ export const EXTRA_IMPLS = {
         roundHint.textContent = `${roundIn.value}%`;
         previews.innerHTML = '';
         if (!source) return;
+        if (!ctx2d(document.createElement('canvas'))) { previews.append(canvasNotice()); return; }
         sizes.forEach((size) => {
           const c = draw(size);
+          if (!c) return;
           c.style.cssText = 'border:1px solid var(--cream-line);border-radius:8px;background:#fff;image-rendering:pixelated';
           previews.append(el('div.col', { style: { gap: '6px', alignItems: 'center' } },
             c,
@@ -1170,18 +1174,20 @@ export const EXTRA_IMPLS = {
           const scale = Math.min(1, 700 / Math.max(img.naturalWidth, img.naturalHeight));
           const w = Math.max(1, Math.round(img.naturalWidth * scale));
           const h = Math.max(1, Math.round(img.naturalHeight * scale));
+          if (!ctx2d(document.createElement('canvas'))) { out.append(canvasNotice()); return; }
           const grid = el('div.grid.grid-2', { style: { marginTop: '16px' } });
           const make = (label, matrix) => {
             const c = document.createElement('canvas');
             c.width = w; c.height = h;
-            const ctx = c.getContext('2d');
+            const ctx = ctx2d(c);
+            if (!ctx) return null;
             ctx.drawImage(img, 0, 0, w, h);
             if (matrix) ctx.putImageData(applyMatrix(ctx.getImageData(0, 0, w, h), matrix), 0, 0);
             c.style.cssText = 'width:100%;border-radius:12px;border:1px solid var(--cream-line)';
             return el('div.card', { style: { padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' } },
               el('div.field-label', { text: label }), c);
           };
-          grid.append(make('Original', null), ...Object.entries(MATRICES).map(([k, m]) => make(LABELS[k].split(' — ')[0], m)));
+          grid.append(...[make('Original', null), ...Object.entries(MATRICES).map(([k, m]) => make(LABELS[k].split(' — ')[0], m))].filter(Boolean));
           out.append(grid);
         },
       });
