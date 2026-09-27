@@ -21,7 +21,6 @@ app.id = 'app';
 app.setAttribute('tabindex', '-1');
 
 let authUser = null;
-let installPrompt = null;
 const state = {
   drawerOpen: false,
   accountOpen: false,
@@ -256,27 +255,6 @@ function buildShortcutsModal() {
   );
 }
 
-function buildInstallBanner() {
-  return el('div.install-banner', { hidden: true },
-    el('div',
-      el('div', { style: { fontWeight: 800 } }, 'Install PSDKIT Pro'),
-      el('div.field-hint', { text: 'Save the toolkit to your home screen for faster offline access.' }),
-    ),
-    el('div.row', { style: { gap: '10px' } },
-      el('button.btn.btn-primary.btn-sm', { text: t('installApp'), onclick: async () => {
-        if (!installPrompt) return;
-        installPrompt.prompt();
-        await installPrompt.userChoice.catch(() => null);
-        refs.installBanner.hidden = true;
-      } }),
-      el('button.btn.btn-soft.btn-sm', { text: t('dismiss'), onclick: () => {
-        try { localStorage.setItem('psdkit_install_dismissed', '1'); } catch { /* ignore */ }
-        refs.installBanner.hidden = true;
-      } }),
-    ),
-  );
-}
-
 function renderChrome() {
   refs.navLinks.innerHTML = '';
   refs.drawerLinks.innerHTML = '';
@@ -336,7 +314,6 @@ function buildShell() {
   );
   const drawerBackdrop = el('div.drawer-backdrop#drawer-backdrop', { onclick: closeDrawer });
   const shortcuts = buildShortcutsModal();
-  const installBanner = buildInstallBanner();
   const backTop = el('button.back-top', { 'aria-label': t('backToTop'), html: `${icon('arrowRight', 16)}` });
   const progress = el('div.scroll-progress', el('span'));
 
@@ -344,7 +321,6 @@ function buildShell() {
   refs.drawer = drawer;
   refs.drawerBackdrop = drawerBackdrop;
   refs.shortcuts = shortcuts;
-  refs.installBanner = installBanner;
   refs.backTop = backTop;
   refs.progress = progress;
   refs.navLinks = nav.querySelector('.nav-links');
@@ -357,7 +333,7 @@ function buildShell() {
   document.body.prepend(drawerBackdrop);
   document.body.prepend(drawer);
   document.body.prepend(nav);
-  document.body.append(installBanner, backTop);
+  document.body.append(backTop);
 
   nav.querySelector('#burger').addEventListener('click', openDrawer);
   backTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
@@ -399,13 +375,7 @@ function rerender() {
 
 function setupPwa() {
   if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => null));
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    installPrompt = e;
-    const dismissed = (() => { try { return localStorage.getItem('psdkit_install_dismissed') === '1'; } catch { return false; } })();
-    if (!dismissed && window.innerWidth < 860 && refs.installBanner) refs.installBanner.hidden = false;
-  });
-  window.addEventListener('appinstalled', () => { if (refs.installBanner) refs.installBanner.hidden = true; });
+  window.addEventListener('beforeinstallprompt', (event) => event.preventDefault());
 }
 
 function boot() {

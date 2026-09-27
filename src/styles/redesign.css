@@ -60,7 +60,7 @@ body { background: var(--cream); color: var(--ink); }
 
 /* A single surface language across all routes */
 .card, .tool-panel, .auth-card, .result-card, .acc, .account-dropdown,
-.ai-history, .modal, .install-banner, .account-trigger, .locale-toggle,
+.ai-history, .modal, .account-trigger, .locale-toggle,
 .icon-btn, .input, .select, .textarea, .search-box input {
   background-color: var(--cream-soft);
   border-color: var(--cream-line);
