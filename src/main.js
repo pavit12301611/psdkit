@@ -3,6 +3,7 @@
    ============================================================ */
 import './styles/main.css';
 import './styles/hero.css';
+import './styles/redesign.css';
 import { el, createAvatar, trapFocus } from './ui.js';
 import { icon } from './icons.js';
 import { renderRoute } from './router.js';
