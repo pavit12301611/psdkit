@@ -613,11 +613,6 @@ kbd {
   display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: left center; transform: scaleX(0);
 }
 .scroll-progress.show { opacity: 1; }
-.install-banner {
-  position: fixed; left: 18px; right: 18px; bottom: 18px; z-index: 130;
-  background: var(--cream-soft); border: 1px solid var(--cream-line); border-radius: 22px;
-  box-shadow: var(--shadow-lg); padding: 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-}
 .ai-history {
   position: absolute; inset: 66px 0 auto auto; width: min(300px, 90%); background: var(--cream-soft);
   border: 1px solid var(--cream-line); border-radius: 18px; box-shadow: var(--shadow-lg);
@@ -657,7 +652,7 @@ kbd {
   .btn-lg { padding: 15px 26px; font-size: 15px; }
   .footer { border-radius: 28px 28px 0 0; }
   .card { padding: 20px; }
-  .signin-inline, .profile-hero, .install-banner { align-items: stretch; }
+  .signin-inline, .profile-hero { align-items: stretch; }
   .share-row { align-items: stretch; }
   .share-row .btn { width: calc(50% - 4px); }
 }

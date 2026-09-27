@@ -26,103 +26,81 @@ function toolCard(t) {
 }
 
 export function renderHome(root) {
-  /* ── HERO ── */
-  const video = el('video', {
-    autoplay: '', loop: '', muted: '', playsinline: '',
-    preload: 'metadata',
-    poster: '',
-    src: 'https://strvid.nyc3.cdn.digitaloceanspaces.com/motionsite/creative_studio_video.mp4',
-  });
-  video.addEventListener('loadedmetadata', () => {
-    try { video.playbackRate = 0.7; } catch { /* some browsers */ }
-  });
-  video.addEventListener('error', () => {
-    const wrap = video.closest('.hero-video-wrap');
-    if (wrap) wrap.style.background = 'var(--cream-deep)';
-  });
+  const scrollToCategories = (event) => {
+    event.preventDefault();
+    document.getElementById('categories')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
-  const hero = el('section.hero',
-    el('div.hero-video-wrap', video),
-    el('div.hero-mask-left'),
-    el('div.hero-mask-top'),
-    el('div.hero-mask-bottom'),
-    el('div.hero-content',
-      el('div.hero-left',
-        el('div.hero-tag',
-          el('span', { text: '175 tools' }),
-          el('span', { text: 'no login' }),
-          el('span', { text: 'free forever' }),
-        ),
-        el('h1.display.hero-h1', { html: 'Every Tool You<br><em>Need.</em>' }),
+  /* ── HERO ── */
+  const featured = ['qr-generator', 'json-format', 'password-gen'].map((id) => TOOL_MAP[id]).filter(Boolean);
+  const hero = el('section.home-hero',
+    el('div.wrap.hero-grid',
+      el('div.hero-copy',
+        el('div.hero-kicker', el('span.hero-live-dot'), `${TOOLS.length} useful tools · Free to use`),
+        el('h1.display.hero-h1', { html: 'Get things done.<br><em>Simply.</em>' }),
         el('p.hero-p', {
-          text: 'PSDKIT Pro packs 175 practical tools for daily life, the internet and coding — plus guides, word meanings, favourites and an AI assistant that knows the site inside out. Built for pros, friendly for beginners.',
+          text: 'A thoughtfully organised toolbox for everyday tasks, the web and your code. Everything you need, right when you need it — no account, no clutter.',
         }),
         el('div.hero-ctas',
           el('a.btn.btn-primary.btn-lg', {
             href: '#/tools',
-            html: `Explore The Toolkit <span class="arr">${icon('arrowUpRight', 18)}</span>`,
+            html: `Explore all tools <span class="arr">${icon('arrowRight', 18)}</span>`,
           }),
-          el('button.btn.btn-outline.btn-lg', {
-            id: 'watch-demo',
-            html: `${icon('play', 16)} Watch Demo`,
+          el('a.btn.btn-soft.btn-lg', {
+            href: '#categories',
+            onclick: scrollToCategories,
+            html: `Browse categories ${icon('grid', 17)}`,
           }),
         ),
-        el('div.hero-proof',
-          el('div.avatars',
-            ...['AK', 'PR', 'RS', 'MV'].map((n, i) =>
-              el('div.av', {
-                text: n,
-                style: { background: ['var(--peach)', 'var(--sage)', 'var(--sky)', 'var(--lavender)'][i] },
-              })),
+        el('div.hero-trust',
+          el('span', { html: `${icon('check', 15)} No sign-up` }),
+          el('span', { html: `${icon('shield', 15)} Private by design` }),
+          el('span', { html: `${icon('zap', 15)} Ready instantly` }),
+        ),
+      ),
+      el('div.hero-showcase',
+        el('div.hero-orbit.hero-orbit-one'),
+        el('div.hero-orbit.hero-orbit-two'),
+        el('div.hero-float.hero-float-top',
+          el('span.float-icon.tile-sage', { html: icon('shield', 17) }),
+          el('span', el('strong', { text: 'Private by design' }), el('small', { text: 'Your work stays yours' })),
+        ),
+        el('div.toolbox-window',
+          el('div.toolbox-topbar',
+            el('div.window-dots', el('i'), el('i'), el('i')),
+            el('span.window-label', { text: 'PSDKIT TOOLBOX' }),
+            el('span.window-status', el('i'), 'All systems ready'),
           ),
-          el('div.p-txt', { html: '<strong>Trusted by 150,000+ makers</strong>students, developers & small teams' }),
+          el('div.toolbox-intro',
+            el('div.toolbox-greeting', { text: 'Your toolkit' }),
+            el('div.toolbox-subtitle', { text: 'A little help for a lot of things.' }),
+            el('div.toolbox-search', el('span', { html: icon('search', 16) }), el('span', { text: 'Find the right tool…' }), el('kbd', { text: '/' })),
+          ),
+          el('div.toolbox-label-row', el('span', { text: 'QUICK PICKS' }), el('a', { href: '#/tools', text: 'View all →' })),
+          el('div.toolbox-tools', ...featured.map((tool) => {
+            const cat = CATEGORIES.find((c) => c.id === tool.cat);
+            return el('a.toolbox-tool', { href: `#/tool/${tool.id}` },
+              el('span', { class: `toolbox-tool-icon ${cat?.tile || 'tile-sky'}`, html: icon(tool.icon, 19) }),
+              el('span.toolbox-tool-info', el('strong', { text: tool.name }), el('small', { text: tool.desc })),
+              el('span.toolbox-tool-arrow', { html: icon('arrowUpRight', 16) }),
+            );
+          })),
+          el('div.toolbox-bottom',
+            el('span.toolbox-avatars', el('i', { text: 'D' }), el('i', { text: 'W' }), el('i', { text: 'C' })),
+            el('span', { html: `<strong>${TOOLS.length}+</strong> tools across four categories` }),
+            el('span.toolbox-bottom-spark', { html: icon('sparkles', 17) }),
+          ),
+        ),
+        el('div.hero-float.hero-float-bottom',
+          el('span.float-icon.tile-peach', { html: icon('zap', 17) }),
+          el('span', el('strong', { text: 'Fast & free' }), el('small', { text: 'No downloads needed' })),
         ),
       ),
     ),
-    el('div.hero-scroll',
-      el('div.mouse'),
-      el('span', { text: 'scroll to explore' }),
+    el('a.hero-scroll-cue', { href: '#categories', onclick: scrollToCategories, 'aria-label': 'Scroll to categories' },
+      el('span', { text: 'Explore the toolkit' }), icon('chevronDown', 15),
     ),
   );
-
-  /* Showreel modal */
-  const modalVideo = el('video', {
-    src: 'https://strvid.nyc3.cdn.digitaloceanspaces.com/motionsite/creative_studio_video.mp4',
-    controls: '', playsinline: '', loop: '',
-  });
-  const modal = el('div.modal-backdrop#demo-modal',
-    el('div.modal',
-      el('div.modal-head',
-        el('div.modal-title', { html: 'PSDKIT Pro — <em style="font-family:var(--serif);font-style:italic;color:var(--accent-deep)">the showreel</em>' }),
-        el('button.modal-close#close-demo', { html: icon('x', 18) }),
-      ),
-      el('div.modal-body',
-        el('div.modal-video', modalVideo),
-        el('p.text-muted.mt-2', {
-          style: { fontSize: '14px', lineHeight: 1.7 },
-          text: '175 tools. Zero logins. Everything runs in your browser — calculators, PDF and image tools, internet lookups, coding playgrounds, dictionaries and an AI guide that points you to the right page.',
-        }),
-        el('div.tool-actions', { style: { marginTop: '14px' } },
-          el('a.btn.btn-accent', { href: '#/tools', onclick: closeModal, html: `Open the toolkit ${icon('arrowRight', 16)}` }),
-        ),
-      ),
-    ),
-  );
-  function openModal() {
-    modal.classList.add('open');
-    document.body.style.overflow = 'hidden';
-    modalVideo.play().catch(() => { });
-  }
-  function closeModal() {
-    modal.classList.remove('open');
-    document.body.style.overflow = '';
-    modalVideo.pause();
-  }
-  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
-  const onEsc = (e) => { if (e.key === 'Escape') closeModal(); };
-  document.addEventListener('keydown', onEsc);
-  hero.querySelector('#watch-demo').addEventListener('click', openModal);
-  modal.querySelector('#close-demo').addEventListener('click', closeModal);
 
   const recentIds = getRecentTools();
   const recentTools = recentIds.map((id) => TOOL_MAP[id]).filter(Boolean).slice(0, 8);
@@ -177,7 +155,7 @@ export function renderHome(root) {
           el('div.eyebrow', { text: 'most used this week' }),
           el('h2.display.h-section', { html: 'Popular <em>right now</em>' }),
         ),
-        el('a.btn.btn-soft', { href: '#/tools', html: `View all 175 ${icon('arrowRight', 15)}` }),
+        el('a.btn.btn-soft', { href: '#/tools', html: `View all ${TOOLS.length} ${icon('arrowRight', 15)}` }),
       ),
       el('div.grid.grid-3', ...POPULAR.map((id) => toolCard(TOOL_MAP[id])).filter(Boolean)),
     ),
@@ -262,6 +240,6 @@ export function renderHome(root) {
     ),
   );
 
-  root.append(hero, recentSection, catSection, popularSection, stepsSection, learnSection, communitySection, modal);
+  root.append(hero, recentSection, catSection, popularSection, stepsSection, learnSection, communitySection);
   renderFeaturedCommunityGrid(communityGrid, 3);
 }
