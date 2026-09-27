@@ -22,6 +22,12 @@ export function el(tag, attrs, ...children) {
       if (v == null || v === false) continue;
       if (k === 'html') node.innerHTML = v;
       else if (k === 'text') node.textContent = v;
+      /* `value` and `checked` are DOM *properties*, not attributes: setting the
+         attribute on a <textarea> does nothing at all, and on an <input> it only
+         seeds the default. Assign the property so content actually appears. */
+      else if (k === 'value' && 'value' in node) node.value = v;
+      else if (k === 'checked' && 'checked' in node) node.checked = !!v;
+      else if (k === 'selected' && 'selected' in node) node.selected = !!v;
       else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
       else if (k === 'dataset') Object.assign(node.dataset, v);
       else if (k === 'style' && typeof v === 'object') Object.assign(node.style, v);

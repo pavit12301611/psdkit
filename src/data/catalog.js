@@ -1,6 +1,8 @@
 /* ============================================================
    PSDKIT Pro — Master Tool Catalog (pure data, no DOM)
-   175 tools: 56 daily · 26 internet · 30 essentials · 63 coding
+   TOOL_COUNT tools, split across four categories. Counts are
+   derived below, never hardcoded, so adding a tool to TOOLS
+   updates the UI, meta tags, sitemap and AI copy automatically.
    Consumed by the app (search, browse) AND the AI backend
    so every assistant reply can link to real pages of this site.
    ============================================================ */
@@ -14,7 +16,7 @@ export const CATEGORIES = [
     tile: 'tile-peach',
     badge: 'badge-daily',
     icon: 'calculator',
-    blurb: 'Calculators and converters for money, health, time, dates and everyday decisions — 50 tools that save you a search.',
+    blurb: 'Calculators and converters for money, health, time, dates and everyday decisions — {n} tools that save you a search.',
   },
   {
     id: 'internet',
@@ -24,7 +26,7 @@ export const CATEGORIES = [
     tile: 'tile-sky',
     badge: 'badge-internet',
     icon: 'globe',
-    blurb: 'Look up IPs and DNS, test speed and headers, inspect websites and build links — 25 tools for everything online.',
+    blurb: 'Look up IPs and DNS, test speed and headers, inspect websites and build links — {n} tools for everything online.',
   },
   {
     id: 'essentials',
@@ -34,7 +36,7 @@ export const CATEGORIES = [
     tile: 'tile-sage',
     badge: 'badge-essentials',
     icon: 'wrench',
-    blurb: 'QR codes, PDFs, images, colours, audio and camera tools — 25 workhorse utilities that run right in your browser.',
+    blurb: 'QR codes, PDFs, images, colours, audio and camera tools — {n} workhorse utilities that run right in your browser.',
   },
   {
     id: 'coding',
@@ -44,13 +46,13 @@ export const CATEGORIES = [
     tile: 'tile-lavender',
     badge: 'badge-coding',
     icon: 'code',
-    blurb: 'Formatters, converters, regex, git, playgrounds, cheatsheets plus word meanings and translation — 50 tools for developers.',
+    blurb: 'Formatters, converters, regex, git, playgrounds, cheatsheets plus word meanings and translation — {n} tools for developers.',
   },
 ];
 
 /** id, name, cat, icon, desc, keys */
 export const TOOLS = [
-  /* ─────────────── DAILY (50) ─────────────── */
+  /* ─────────────── DAILY ─────────────── */
   { id: 'age-calc', name: 'Age Calculator', cat: 'daily', icon: 'calendar', desc: 'Find your exact age in years, months, days — plus total days, hours and your next birthday.', keys: 'age birthday years old date born' },
   { id: 'bmi-calc', name: 'BMI Calculator', cat: 'daily', icon: 'heart', desc: 'Calculate your Body Mass Index from height and weight and see what the number means.', keys: 'bmi body mass index health weight height fitness' },
   { id: 'calorie-calc', name: 'Calorie & BMR Calculator', cat: 'daily', icon: 'activity', desc: 'Estimate daily calories your body burns at rest and what to eat to reach your goal.', keys: 'calories bmr tdee diet metabolism health food' },
@@ -234,12 +236,58 @@ export const TOOLS = [
   { id: 'markdown-cheatsheet', name: 'Markdown Cheatsheet', cat: 'coding', icon: 'fileText', desc: 'Searchable Markdown syntax reference with copy-ready examples.', keys: 'markdown cheatsheet md syntax headings table code block' },
   { id: 'seo-mini-audit', name: 'SEO Mini-Audit', cat: 'internet', icon: 'searchCheck', desc: 'Fetch a URL and score its title, meta description, H1 and Open Graph basics.', keys: 'seo audit meta title description h1 og tags score' },
   { id: 'leap-year-zodiac', name: 'Leap Year & Zodiac Finder', cat: 'daily', icon: 'star', desc: 'Check whether a year is a leap year and discover zodiac signs from a date.', keys: 'leap year zodiac horoscope date sign birth' },
+
+  /* ─────────────── 2026 BATCH (26) ─────────────── */
+  /* daily — money, study and everyday maths */
+  { id: 'roman-numeral', name: 'Roman Numeral Converter', cat: 'daily', icon: 'hash', desc: 'Convert any number from 1 to 3999 into Roman numerals and back again.', keys: 'roman numeral converter mmxxvi i v x l c d m ancient numbers' },
+  { id: 'fraction-calc', name: 'Fraction Calculator', cat: 'daily', icon: 'percent', desc: 'Add, subtract, multiply or divide fractions with simplified and mixed-number answers.', keys: 'fraction calculator add subtract multiply divide simplify mixed number numerator denominator' },
+  { id: 'cgpa-percentage', name: 'CGPA ⇄ Percentage Converter', cat: 'daily', icon: 'graduation', desc: 'Convert CGPA to percentage and back using CBSE ×9.5, (CGPA−0.75)×10 or 4.0-scale formulas.', keys: 'cgpa percentage converter cbse 9.5 university grade result marks india' },
+  { id: 'attendance-calc', name: 'Attendance Calculator', cat: 'daily', icon: 'listChecks', desc: 'See your attendance percentage, how many classes you can skip and how many you must attend.', keys: 'attendance calculator percentage bunk skip classes college school 75 percent required' },
+  { id: 'income-tax-india', name: 'Income Tax Calculator (India)', cat: 'daily', icon: 'dollar', desc: 'Compare the new and old regime for FY 2025-26 and see which one saves you more tax.', keys: 'income tax india calculator new old regime slab fy 2025 26 ay 2026 27 87a rebate cess salary' },
+  { id: 'fd-rd-calc', name: 'FD & RD Maturity Calculator', cat: 'daily', icon: 'target', desc: 'Project fixed deposit and recurring deposit maturity with monthly, quarterly or yearly compounding.', keys: 'fd rd fixed deposit recurring deposit maturity calculator interest compound bank post office india' },
+  { id: 'unit-price-compare', name: 'Unit Price Comparator', cat: 'daily', icon: 'tag', desc: 'Find out which pack is really cheaper once you compare price per gram, ml or piece.', keys: 'unit price comparator best value deal per gram litre piece shopping grocery compare offer' },
+  { id: 'passphrase-gen', name: 'Passphrase Generator', cat: 'daily', icon: 'lock', desc: 'Build memorable, high-entropy passphrases from random words with a strength estimate.', keys: 'passphrase generator diceware words entropy memorable strong security password xkcd' },
+  { id: 'rent-affordability', name: 'Rent Affordability Calculator', cat: 'daily', icon: 'home', desc: 'Work out the maximum rent you can comfortably afford from your monthly income.', keys: 'rent affordability calculator 30 percent rule budget house flat deposit metro salary' },
+  { id: 'final-exam-calc', name: 'Final Exam Grade Calculator', cat: 'daily', icon: 'graduation', desc: 'Find the score you need on your final exam to hit your target grade — or see if it is still possible.', keys: 'final exam grade calculator target score needed weight percentage college school result' },
+
+  /* internet — addressing and networking */
+  { id: 'subnet-calc', name: 'IP Subnet Calculator', cat: 'internet', icon: 'server', desc: 'Split any IPv4 CIDR into network, mask, wildcard, broadcast, host range and usable hosts.', keys: 'subnet calculator cidr ipv4 netmask wildcard broadcast host range network prefix vlsm' },
+  { id: 'mac-address-gen', name: 'MAC Address Generator', cat: 'internet', icon: 'cpu', desc: 'Generate random MAC addresses in any format, unicast or multicast, locally administered or not.', keys: 'mac address generator random locally administered multicast unicast vm container testing aa bb cc' },
+  { id: 'port-reference', name: 'Common Ports Cheatsheet', cat: 'internet', icon: 'terminal', desc: 'Searchable reference for TCP and UDP ports — SSH, DNS, HTTPS, databases and more.', keys: 'port reference cheatsheet tcp udp 22 80 443 3306 5432 6379 ssh dns http https database firewall' },
+
+  /* essentials — images, colour and design */
+  { id: 'image-base64', name: 'Image to Base64', cat: 'essentials', icon: 'binary', desc: 'Turn any image into a Base64 data URI with size, dimensions and a ready CSS rule.', keys: 'image base64 data uri converter encode inline css background png jpg svg' },
+  { id: 'image-filters', name: 'Photo Filter Studio', cat: 'essentials', icon: 'paint', desc: 'Apply brightness, contrast, saturation, hue, sepia and grayscale to a photo and download it.', keys: 'photo filter studio image edit brightness contrast saturation sepia grayscale hue invert canvas' },
+  { id: 'favicon-generator', name: 'Favicon & App Icon Generator', cat: 'essentials', icon: 'image', desc: 'Turn one logo into 16, 32, 48, 180, 192 and 512px icons plus the HTML to embed them.', keys: 'favicon generator app icon pwa apple touch icon 16 32 180 192 512 logo png manifest' },
+  { id: 'aspect-ratio-calc', name: 'Aspect Ratio Calculator', cat: 'essentials', icon: 'monitor', desc: 'Simplify any width and height, scale to a new size, or match 16:9, 4:3, 1:1 and 21:9.', keys: 'aspect ratio calculator 16 9 4 3 1 1 21 9 resize dimensions video image scale simplify' },
+  { id: 'colour-blind-sim', name: 'Colour Blindness Simulator', cat: 'essentials', icon: 'eye', desc: 'Preview a colour or a whole screenshot as seen with protanopia, deuteranopia or tritanopia.', keys: 'colour blindness simulator colorblind protanopia deuteranopia tritanopia accessibility a11y design contrast' },
+  { id: 'screen-colour-picker', name: 'Screen Colour Picker', cat: 'essentials', icon: 'palette', desc: 'Sample any pixel on your screen and get HEX, RGB, HSL, CMYK and WCAG contrast in one go.', keys: 'screen colour picker eyedropper pixel hex rgb hsl cmyk contrast wcag design' },
+
+  /* coding — converters, diffing and text analysis */
+  { id: 'json-diff', name: 'JSON Diff / Compare', cat: 'coding', icon: 'braces', desc: 'Compare two JSON documents and see every added, removed and changed value by path.', keys: 'json diff compare difference two objects api response change detect path' },
+  { id: 'html-to-jsx', name: 'HTML to JSX Converter', cat: 'coding', icon: 'code', desc: 'Convert HTML to JSX — class to className, inline styles to objects, void tags self-closed.', keys: 'html to jsx converter react class classname style object self closing tag comment' },
+  { id: 'rem-px-conv', name: 'REM ⇄ PX Converter', cat: 'coding', icon: 'ruler', desc: 'Convert px, rem, em, pt, percent, cm, in and mm with your own root font size.', keys: 'rem px converter css em pt percent root font size 16 responsive unit length' },
+  { id: 'env-parser', name: '.env Parser & Converter', cat: 'coding', icon: 'settings', desc: 'Parse a .env file into JSON, shell exports or a Markdown table — with secrets masked.', keys: 'env parser dotenv json shell export markdown environment variables config secret mask' },
+  { id: 'ascii-art-text', name: 'ASCII Art Text Generator', cat: 'coding', icon: 'type', desc: 'Render text as a 5-row block ASCII banner with your choice of fill character.', keys: 'ascii art text generator banner block figlet readme terminal logo letters' },
+  { id: 'unicode-inspector', name: 'Unicode Character Inspector', cat: 'coding', icon: 'sparkles', desc: 'Inspect every character in a string — code point, block, UTF-8 bytes and JS escape.', keys: 'unicode inspector codepoint utf-8 bytes block emoji character html entity escape javascript' },
+  { id: 'keyword-density', name: 'Keyword Density Analyzer', cat: 'coding', icon: 'searchCheck', desc: 'Count words and phrases, rank them by density and score a focus keyword for SEO.', keys: 'keyword density analyzer seo word frequency count phrase bigram focus keyword content' },
 ];
 
 export const TOOL_MAP = Object.fromEntries(TOOLS.map((t) => [t.id, t]));
 
+/** Total number of tools — the single source of truth for every count shown
+ *  in the UI, meta tags, sitemap and AI replies. Never hardcode it again. */
+export const TOOL_COUNT = TOOLS.length;
+
 export function toolsByCat(cat) {
   return TOOLS.filter((t) => t.cat === cat);
+}
+
+/* Attach the live count to each category and resolve the {n} placeholder in
+   the blurbs, so category copy can never drift from the real catalog. */
+for (const c of CATEGORIES) {
+  c.count = toolsByCat(c.id).length;
+  if (typeof c.blurb === 'string') c.blurb = c.blurb.replace(/\{n\}/g, c.count);
 }
 
 function fuzzyDistance(a = '', b = '') {

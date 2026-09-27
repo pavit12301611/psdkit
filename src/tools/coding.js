@@ -5,6 +5,7 @@
 import { el, fmt, copyText, toast, loadScript, debounce, copyButton, downloadFile } from '../ui.js';
 import { icon } from '../icons.js';
 import { mountFormTool, num, wordsCapitalise, renderResult } from './formkit.js';
+import { TOOL_COUNT } from '../data/catalog.js';
 
 /* ── shared: searchable reference mount (cheatsheets & tables) ── */
 function referenceTool({ intro, sections }) {
@@ -1257,7 +1258,8 @@ export const CODING_IMPLS = {
           ['Unix seconds', Math.floor(now / 1000)],
           ['Unix milliseconds', now],
           ['ISO (UTC)', new Date(now).toISOString()],
-          ['Local time', new Date(now).toString()],
+          /* compact — the full Date.toString() does not fit a stat tile */
+          ['Local time', new Date(now).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' })],
         ].map(([k, v]) => el('div.stat', el('div.k', { text: k }), el('div.v', { text: String(v), style: { fontSize: '13px', wordBreak: 'break-all' } })))));
       };
       const t = setInterval(render, 1000);
@@ -1412,7 +1414,7 @@ export const CODING_IMPLS = {
   /* 25 ── Slug */
   'slug-gen': {
     fields: [
-      { id: 'text', label: 'Title', type: 'textarea', rows: 3, default: 'PSDKIT Pro: 175 Free Tools for Everyone!' },
+      { id: 'text', label: 'Title', type: 'textarea', rows: 3, default: `PSDKIT Pro: ${TOOL_COUNT} Free Tools for Everyone!` },
     ],
     compute(v) {
       const t = v.text || '';
@@ -1425,9 +1427,16 @@ export const CODING_IMPLS = {
         .replace(/-+/g, '-');
       return {
         title: 'URL slug',
-        stats: [{ label: 'Slug', value: slug.slice(0, 30) + (slug.length > 30 ? '…' : '') }, { label: 'Length', value: slug.length }],
+        /* the slug itself lives in the copyable text block below — a long slug
+           in a stat tile would wrap to four cramped lines */
+        stats: [
+          { label: 'Characters', value: slug.length },
+          { label: 'Words', value: slug ? slug.split('-').filter(Boolean).length : 0 },
+          { label: 'SEO friendly', value: slug && slug.length <= 75 ? 'Yes' : 'Too long' },
+        ],
         text: slug,
         copy: slug,
+        note: 'Aim for under 75 characters. Use lowercase letters and hyphens — no spaces or underscores.',
       };
     },
   },
@@ -2049,13 +2058,18 @@ export const CODING_IMPLS = {
         const tbody = el('tbody');
         rows.forEach((row, rowIndex) => {
           tbody.append(el('tr', ...headers.map((_, colIndex) => {
-            const cell = el('input.input', { value: row[colIndex] || '', style: { minWidth: '120px' } });
+            /* width:100% + min-width:0 lets the cell shrink with the panel;
+               the .table-scroll wrapper handles the genuinely-too-narrow case
+               by scrolling instead of pushing the table out of the card. */
+            const cell = el('input.input', { value: row[colIndex] || '', style: { width: '100%', minWidth: '0' } });
             cell.addEventListener('input', () => { rows[rowIndex][colIndex] = cell.value; });
             return el('td', cell);
           })));
         });
         tbl.append(tbody);
-        table.append(tbl);
+        /* wide CSVs scroll horizontally inside their own wrapper */
+        tbl.style.minWidth = `${Math.max(headers.length * 150, 100)}px`;
+        table.append(el('div.table-scroll', tbl));
       };
       container.append(
         el('div.field', el('label.field-label', { text: 'CSV input' }), input),

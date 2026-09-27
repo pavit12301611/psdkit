@@ -1075,8 +1075,13 @@ export const ESSENTIAL_IMPLS = {
         style: {
           height: '320px', borderRadius: '18px', background: '#fff', border: '1.5px solid var(--cream-line)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: '44px', color: 'var(--muted-light)',
+          fontFamily: 'var(--serif)', fontStyle: 'italic',
+          /* a fixed 44px word is wider than a phone panel — scale it and let
+             it break so the caption stays inside the rounded box */
+          fontSize: 'clamp(20px, 6.5vw, 44px)', lineHeight: 1.15,
+          color: 'var(--muted-light)',
           transition: 'background .35s ease, color .35s ease', cursor: 'pointer', textAlign: 'center', padding: '20px',
+          maxWidth: '100%', overflowWrap: 'anywhere', wordBreak: 'break-word',
         },
         text: 'Tap to toggle flashlight',
       });

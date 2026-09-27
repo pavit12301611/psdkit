@@ -1,17 +1,19 @@
-# PSDKIT Pro — 175 Free Online Tools
+# PSDKIT Pro — 201 Free Online Tools
 
 **Every tool you need. Calm design. No login required for the main toolkit.**
 
-PSDKIT Pro is a Vite + vanilla JS toolkit site with **175 browser-based tools**, coding guides, a tech glossary, a floating AI assistant, Google sign-in for community publishing, favourites, recent history, a warm/dim theme toggle, Hindi UI support, and a moderated community toolbox.
+PSDKIT Pro is a Vite + vanilla JS toolkit site with **201 browser-based tools**, coding guides, a tech glossary, a floating AI assistant, Google sign-in for community publishing, favourites, recent history, a warm/dim theme toggle, Hindi UI support, and a moderated community toolbox.
 
 ## What’s inside
 
 | Area | Count | Highlights |
 |---|---:|---|
-| Daily tools | 56 | Age, BMI, GST, salary hike, number-to-words, leap year & zodiac, notes, todo, timers |
-| Internet tools | 26 | IP, DNS, headers, website status, UTM builder, page weight, SEO mini-audit |
-| Essential tools | 30 | QR tools, PDF merge/split/watermark/page numbers, image tools, palette extraction, voice/screen tools |
-| Coding & learn tools | 63 | Playground, formatters, regex, cron, JSON → TS, .gitignore, package.json, README generator, references |
+| Daily tools | 66 | Age, BMI, GST, income tax (India), FD/RD, CGPA, attendance, fractions, rent affordability, passphrases |
+| Internet tools | 29 | IP, DNS, headers, subnet/CIDR, MAC generator, ports cheatsheet, UTM builder, SEO mini-audit |
+| Essential tools | 36 | QR tools, PDF merge/split/watermark, photo filters, favicon generator, colour-blind simulator, screen picker |
+| Coding & learn tools | 70 | Playground, formatters, JSON diff, HTML→JSX, .env parser, ASCII art, Unicode inspector, keyword density |
+
+Counts are derived from `src/data/catalog.js` at runtime (`TOOL_COUNT`), and a test fails if any hardcoded number in the shipped copy drifts from the catalog.
 
 ## Major product features
 
@@ -50,7 +52,27 @@ PSDKIT Pro is a Vite + vanilla JS toolkit site with **175 browser-based tools**,
 - **Localization**
   - English / Hindi UI toggle via `src/data/i18n.js`
 
-## New tools added in this upgrade
+## 2026 batch — 26 new tools
+
+| Category | Tools |
+|---|---|
+| Daily (10) | Roman Numeral Converter · Fraction Calculator · CGPA ⇄ Percentage · Attendance Calculator · Income Tax Calculator (India, FY 2025-26) · FD & RD Maturity · Unit Price Comparator · Passphrase Generator · Rent Affordability · Final Exam Grade Calculator |
+| Internet (3) | IP Subnet Calculator (CIDR) · MAC Address Generator · Common Ports Cheatsheet |
+| Essentials (6) | Image to Base64 · Photo Filter Studio · Favicon & App Icon Generator · Aspect Ratio Calculator · Colour Blindness Simulator · Screen Colour Picker |
+| Coding (7) | JSON Diff / Compare · HTML to JSX · REM ⇄ PX Converter · .env Parser & Converter · ASCII Art Text Generator · Unicode Character Inspector · Keyword Density Analyzer |
+
+Every new tool has an AI-assistant intent, so asking the assistant about income tax, subnets, CGPA, favicons or JSON diffs links straight to the right page.
+
+## Text-fit work in this upgrade
+
+Text used to escape its box in several places — stat tiles, result headers, tables and long tokens. Both root causes are now fixed in CSS and guarded by a test:
+
+1. **Flex/grid children default to `min-width: auto`**, so they refuse to shrink below their longest word and push through the parent border. Every layout container now zeroes it.
+2. **Long unbreakable tokens** (URLs, hashes, slugs, Base64, emails) never wrap unless asked. Result outputs, notes, stat values, breadcrumbs and chat bubbles now break them.
+
+Also fixed: `.result-head` wraps instead of overflowing, `.stat` tiles clamp and scale their value, wide tables scroll inside `.table-scroll`, `.hero-h1 em` only refuses to wrap on screens wide enough for it, and stat values that were full sentences (a raw `Date.toString()`) were reshaped into short ones.
+
+## Earlier upgrade
 
 1. PDF Watermark  
 2. PDF Page Numbers  
@@ -110,19 +132,40 @@ Copy `.env.example` to `.env` for local testing if needed. Keep real secrets out
 ## Scripts
 
 - `npm run dev` — Vite dev server
-- `npm test` — jsdom smoke suite
+- `npm test` — jsdom smoke suite **plus** the text-fit audit (both must pass)
+- `npm run test:smoke` — jsdom smoke suite only
+- `npm run audit` — text-fit audit only, `--verbose` lists every finding
 - `npm run build` — generates sitemap/robots then builds production assets
 - `npm run preview` — preview the production build
+
+### What the audits check
+
+`scripts/smoke.mjs` mounts all 201 tools and every page in jsdom, then asserts:
+
+- catalog ↔ implementation parity, unique ids, known icons, real descriptions and keywords
+- the AI assistant answers for each new tool and links to the right page
+- no hardcoded tool count anywhere in shipped copy (`TOOL_COUNT` is the only source)
+- `el()` assigns `value` / `checked` as DOM properties, not attributes
+- the CSV viewer renders an editable table inside a scroll wrapper
+- no stat tile is handed a value too long for its box
+
+`scripts/audit-overflow.mjs` runs a small layout model over every tool at seven viewport widths (360 → 1440). It estimates text advance widths per character, compares them against the width the real CSS gives each container, and reports two levels:
+
+- **HARD** — text that genuinely cannot fit its box (fails the run)
+- **SOFT** — text that fits but wraps into an unreadable block (warning)
+
+Because jsdom has no layout engine, the model encodes `src/styles/*.css`. If you change wrapping or grid behaviour there, update the tables in the auditor.
 
 ## Project structure
 
 ```text
 api/ai.js                    AI endpoint with OpenAI/Gemini + safe fallback
 public/                      logo, PWA files, sitemap, robots
-scripts/gen-sitemap.mjs      sitemap generator
-scripts/smoke.mjs            smoke tests for tools + pages
+scripts/gen-sitemap.mjs      sitemap generator (derived from the catalog)
+scripts/smoke.mjs            smoke tests for tools + pages + count drift
+scripts/audit-overflow.mjs   text-fit layout auditor
 src/ai/                      chat UI + local knowledge brain
-src/data/catalog.js          all 175 tool records
+src/data/catalog.js          all tool records + TOOL_COUNT
 src/data/guides.js           guides + glossary
 src/data/i18n.js             EN / Hindi UI strings
 src/firebase.js              optional Firebase auth + Firestore helpers
@@ -130,6 +173,9 @@ src/pages/                   home, tools, learn, community, help, signin, profil
 src/prefs.js                 favourites, theme, recent history, feedback
 src/seo.js                   dynamic meta tags + JSON-LD
 src/tools/                   tool implementations by shelf
+src/tools/extras.js          the 2026 batch (26 tools)
+src/tools/formkit.js         declarative fields + compute engine
+src/styles/                  design system, hero/tool pages, product layer
 ```
 
 ## Deployment

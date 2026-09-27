@@ -186,7 +186,7 @@ function buildFooter() {
           el('div.f-brand', { html: 'PSDKIT<span class="dot">.</span>Pro' }),
           el('p', {
             style: { color: 'rgba(245,239,230,0.6)', fontSize: '14.5px', lineHeight: 1.75, marginTop: '14px', maxWidth: '280px' },
-            text: '175 free tools for daily life, the internet and coding — plus guides, a glossary, an AI assistant and a community toolbox.',
+            text: `${TOOLS.length} free tools for daily life, the internet and coding — plus guides, a glossary, an AI assistant and a community toolbox.`,
           }),
           el('div', { style: { marginTop: '18px' } },
             el('a', {

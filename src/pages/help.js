@@ -1,9 +1,10 @@
 /* Help / About page — FAQ, getting started, contact info */
 import { el } from '../ui.js';
 import { icon } from '../icons.js';
+import { TOOL_COUNT } from '../data/catalog.js';
 
 export const FAQS = [
-  ['Do I need an account to use the tools?', 'No. All 175 tools work instantly without any login. You only sign in with Google if you want to publish a tool to the Community Toolbox — and even that is optional.'],
+  ['Do I need an account to use the tools?', `No. All ${TOOL_COUNT} tools work instantly without any login. You only sign in with Google if you want to publish a tool to the Community Toolbox — and even that is optional.`],
   ['Are my files and data safe?', 'Yes — nearly everything runs locally in your browser. Your PDFs, images, passwords and notes never touch a server. Tools that need network data (IP lookup, dictionary, currency rates) only fetch that specific public information.'],
   ['Does it work on mobile phones?', 'Absolutely. Every tool is designed mobile-first: big touch targets, responsive layouts and lightweight code so it stays smooth on slower connections.'],
   ['How does the AI assistant work?', 'The assistant (bottom-right button) knows every tool and page on PSDKIT Pro. Ask it things like “how do I compress a PDF” or “what does API mean” and it will explain and link you to the exact page. When an AI API key is configured, it becomes even smarter.'],

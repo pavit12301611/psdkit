@@ -9,12 +9,14 @@ import { DAILY_IMPLS } from './daily.js';
 import { INTERNET_IMPLS } from './internet.js';
 import { ESSENTIAL_IMPLS } from './essentials.js';
 import { CODING_IMPLS } from './coding.js';
+import { EXTRA_IMPLS } from './extras.js';
 
 const IMPLS = {
   ...DAILY_IMPLS,
   ...INTERNET_IMPLS,
   ...ESSENTIAL_IMPLS,
   ...CODING_IMPLS,
+  ...EXTRA_IMPLS,
 };
 
 export function getTool(id) {

@@ -1,6 +1,8 @@
+import { TOOL_COUNT } from './data/catalog.js';
+
 const DEFAULTS = {
-  title: 'PSDKIT Pro — 175 Free Online Tools for Daily Life, Internet & Coding',
-  description: 'PSDKIT Pro is a free toolkit with 175 practical tools — daily calculators, internet tools, everyday essentials and coding helpers, plus guides, a glossary, AI assistant and community toolbox.',
+  title: `PSDKIT Pro — ${TOOL_COUNT} Free Online Tools for Daily Life, Internet & Coding`,
+  description: `PSDKIT Pro is a free toolkit with ${TOOL_COUNT} practical tools — daily calculators, internet tools, everyday essentials and coding helpers, plus guides, a glossary, AI assistant and community toolbox.`,
   image: '/logo.png',
 };
 

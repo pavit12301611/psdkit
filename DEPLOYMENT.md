@@ -105,7 +105,7 @@ The document can be empty; only the UID/doc id matters.
 ## Step 5 — What works before keys exist?
 
 Even with **no keys set**:
-- the main 175-tool toolkit still works
+- the main 201-tool toolkit still works
 - `/api/ai` returns a safe fallback signal
 - the client-side local AI brain still answers naturally
 - sign-in/community areas show friendly fallback states instead of breaking

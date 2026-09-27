@@ -172,7 +172,7 @@ export function renderToolsPage(root, catId = null) {
         el('div.wrap',
           el('div.breadcrumb', el('a', { href: '#/', text: 'Home' }), el('span.sep', { text: '/' }), el('span', { text: 'Tools' })),
           el('h1.display', { style: { fontSize: 'clamp(32px,5vw,48px)', margin: '14px 0 10px' }, html: 'The <em>Toolkit</em>' }),
-          el('p.lede', { text: '175 free tools — with favourites, recent history, typo-tolerant search and an assistant that can point you to the right one.' }),
+          el('p.lede', { text: `${TOOLS.length} free tools — with favourites, recent history, typo-tolerant search and an assistant that can point you to the right one.` }),
         ),
       ),
       el('div.browser-bar', el('div.wrap',

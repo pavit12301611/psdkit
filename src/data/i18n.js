@@ -1,3 +1,5 @@
+import { TOOL_COUNT } from './catalog.js';
+
 const LOCALE_KEY = 'psdkit_locale';
 
 export const STRINGS = {
@@ -56,7 +58,7 @@ export const STRINGS = {
     signInRequired: 'Sign in to see your profile',
     profileEmpty: 'You have not published a community tool yet.',
     featuredCommunity: 'From the community',
-    smartSearchHint: 'Search 175 tools… try “pdf”, “qr”, “convert”, “regex”, “hike”',
+    smartSearchHint: 'Search {count} tools… try “pdf”, “qr”, “convert”, “regex”, “tax”',
     shortcutsBody: 'Use these shortcuts to move faster around PSDKIT Pro.',
     unknownRoute: 'We could not find that page.',
     reportReason: 'Reason for report',
@@ -116,7 +118,7 @@ export const STRINGS = {
     signInRequired: 'अपना प्रोफ़ाइल देखने के लिए साइन इन करें',
     profileEmpty: 'आपने अभी तक कोई कम्युनिटी टूल प्रकाशित नहीं किया है।',
     featuredCommunity: 'कम्युनिटी से',
-    smartSearchHint: '175 टूल खोजें… जैसे “pdf”, “qr”, “convert”, “regex”, “hike”',
+    smartSearchHint: '{count} टूल खोजें… जैसे “pdf”, “qr”, “convert”, “regex”, “tax”',
     shortcutsBody: 'PSDKIT Pro में तेज़ी से चलने के लिए ये शॉर्टकट इस्तेमाल करें।',
     unknownRoute: 'यह पेज नहीं मिला।',
     reportReason: 'रिपोर्ट का कारण',
@@ -139,8 +141,13 @@ export function setLocale(locale) {
   return next;
 }
 
-export function t(key, locale = getLocale()) {
-  return STRINGS[locale]?.[key] || STRINGS.en[key] || key;
+export function t(key, locale = getLocale(), vars = {}) {
+  const raw = STRINGS[locale]?.[key] || STRINGS.en[key] || key;
+  /* {count} always resolves to the live catalog size, so translated copy
+     can never drift when tools are added. */
+  return String(raw).replace(/\{(\w+)\}/g, (m, name) => (
+    name === 'count' ? TOOL_COUNT : (name in vars ? vars[name] : m)
+  ));
 }
 
 export function initLocale() {

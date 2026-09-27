@@ -4,7 +4,7 @@
    and falls back to this engine. Replies reference pages of THIS
    site only, with real internal links.
    ============================================================ */
-import { TOOLS, TOOL_MAP, CATEGORIES } from '../data/catalog.js';
+import { TOOLS, TOOL_MAP, CATEGORIES, TOOL_COUNT } from '../data/catalog.js';
 import { GLOSSARY, LANGUAGE_GUIDES } from '../data/guides.js';
 
 const toolLink = (id, label) => `[${label || TOOL_MAP[id]?.name || id}](#/tool/${id})`;
@@ -19,7 +19,7 @@ const INTENTS = [
     match: /^(hi|hello|hey|yo|namaste|hola|good (morning|evening|afternoon))\b/i,
     run: () => pick(
       `Hey! 👋 Welcome to PSDKIT Pro. I can point you to the right tool, explain any tech word, or help with coding.\n\nTry the [toolkit](#/tools) or just tell me what you’re trying to do today!`,
-      `Hello! Great to see you. I know all 175 tools on this site — tell me what you need (like “compress a PDF” or “what is an API”) and I’ll take you there.\n\nOr browse the [full toolkit](#/tools) yourself.`,
+      `Hello! Great to see you. I know all ${TOOL_COUNT} tools on this site — tell me what you need (like “compress a PDF” or “what is an API”) and I’ll take you there.\n\nOr browse the [full toolkit](#/tools) yourself.`,
     ),
   },
   {
@@ -54,6 +54,138 @@ const INTENTS = [
     id: 'qr',
     match: /\b(qr|barcode|scan)\b/i,
     run: () => `For QR codes:\n\n• ${toolLink('qr-generator')} — create QR codes for links, text or anything (with custom colours)\n• ${toolLink('qr-scanner')} — scan QR codes with your camera or an image\n• ${toolLink('wifi-qr')} — a QR code that connects guests to your Wi-Fi instantly\n\nAll run privately in your browser.`,
+  },
+  /* ── 2026 tool batch — specific intents placed before the generic
+        image / password / convert-unit matchers so they win ── */
+  {
+    id: 'image-base64',
+    match: /\b(image|photo|png|jpg|svg).*(base ?64|data ?uri)|base ?64.*(image|photo)|inline (image|css)\b/i,
+    run: () => `Use the ${toolLink('image-base64')} — drop an image and you get the data URI, its Base64 size, dimensions and a ready-made CSS rule.\n\nFor plain text, the ${toolLink('base64-codec')} encodes and decodes strings instead.`,
+  },
+  {
+    id: 'photo-filters',
+    match: /\b(photo|image|picture).*(filter|edit|bright|contrast|saturat|sepia|grayscale|greyscale|hue|invert)|\bfilter.*(photo|image)\b/i,
+    run: () => `The ${toolLink('image-filters')} does that live in your browser: brightness, contrast, saturation, hue, sepia, grayscale and invert, then download a PNG or copy the matching CSS filter rule.`,
+  },
+  {
+    id: 'favicon-icons',
+    match: /\b(favicon|app icon|apple.?touch.?icon|pwa icon|manifest icon|logo sizes)\b/i,
+    run: () => `Use the ${toolLink('favicon-generator')}:\n\n1. Drop a square logo (512×512 PNG is ideal)\n2. Set the background, padding and corner rounding\n3. Download 16, 32, 48, 180, 192 and 512px icons and copy the HTML snippet\n\nNeed a QR of it too? The ${toolLink('qr-generator')} covers that.`,
+  },
+  {
+    id: 'colour-blindness',
+    match: /\b(colou?r ?blind\w*|protanopia|deuteranopia|tritanopia|achromatopsia|daltoni\w*)\b/i,
+    run: () => `The ${toolLink('colour-blind-sim')} previews a hex colour or a whole screenshot under protanopia, deuteranopia, tritanopia and total colour blindness.\n\nPair it with the ${toolLink('contrast-check')} for WCAG contrast — the rule of thumb is never let colour be the only signal.`,
+  },
+  {
+    id: 'screen-picker',
+    match: /\b(eye ?dropper|pick.*(colour|color).*screen|sample.*(pixel|colour)|screen (colour|color) picker)\b/i,
+    run: () => `The ${toolLink('screen-colour-picker')} samples any pixel on your screen (Chrome and Edge support the EyeDropper API) and returns HEX, RGB, HSL, CMYK plus WCAG contrast on white and black.\n\nPrefer typing a value? Use the ${toolLink('color-picker')} or ${toolLink('color-code')}.`,
+  },
+  {
+    id: 'aspect-ratio',
+    match: /\b(aspect ratio|16:9|21:9|4:3|9:16|1:1|resize.*(ratio|proportion)|widescreen)\b/i,
+    run: () => `The ${toolLink('aspect-ratio-calc')} simplifies any width × height, scales it to a new size, or forces a common ratio like 16:9, 21:9, 4:3, 1:1 or 9:16 — and tells you the closest standard.`,
+  },
+  {
+    id: 'income-tax-india',
+    match: /\b(income tax|tax slab|new regime|old regime|87a|rebate|cess|\bitr\b|tds|taxable income|section 80c)\b/i,
+    run: () => `The ${toolLink('income-tax-india')} compares both regimes for FY 2025-26 and tells you which one is cheaper:\n\n1. Enter your annual income and tick "salaried" for the standard deduction\n2. Add your 80C / HRA / interest deductions for the old regime\n3. Read the tax, the saving and your monthly take-home\n\nFor invoices and prices, the ${toolLink('gst-calculator')} handles GST and the ${toolLink('salary-hike-calc')} handles appraisals.`,
+  },
+  {
+    id: 'deposits',
+    match: /\b(fd|rd|fixed deposit|recurring deposit|deposit maturity|post office scheme|maturity amount)\b/i,
+    run: () => `The ${toolLink('fd-rd-calc')} projects both:\n\n• **FD** — a lump sum with monthly, quarterly, half-yearly or yearly compounding\n• **RD** — a monthly instalment where each payment earns interest from the month it goes in\n\nRelated: ${toolLink('sip-calc')} for mutual-fund SIPs and ${toolLink('compound-interest')} for the raw maths.`,
+  },
+  {
+    id: 'attendance',
+    match: /\b(attendance|bunk|skip (class|lecture|school|college)|short attendance)\b/i,
+    run: () => `The ${toolLink('attendance-calc')} answers all three questions at once: your current percentage, how many classes you can still skip, and how many you must attend in a row to get back above the requirement.\n\nFor overall grades use the ${toolLink('gpa-calc')}, and to plan a target score use the ${toolLink('final-exam-calc')}.`,
+  },
+  {
+    id: 'cgpa',
+    match: /\b(cgpa|sgpa|cgpa to percentage|percentage to cgpa|grade point average|9\.5)\b/i,
+    run: () => `The ${toolLink('cgpa-percentage')} converts both ways with the formula your institution actually uses:\n\n• **CGPA × 9.5** — CBSE and most schools\n• **(CGPA − 0.75) × 10** — many universities\n• **CGPA × 10** — a straight 10-point scale\n• **CGPA × 25** — a 4.0 scale\n\nAlways check your own marksheet — universities differ. For course-wise grades use the ${toolLink('gpa-calc')}.`,
+  },
+  {
+    id: 'final-exam',
+    match: /\b(final exam|exam calculator|score.*need.*exam|target grade|grade calculator|what do i need.*exam)\b/i,
+    run: () => `The ${toolLink('final-exam-calc')} works out the score you need on the final, given your current percentage and how much each part is weighted — and tells you honestly if the target is no longer reachable.`,
+  },
+  {
+    id: 'rent-afford',
+    match: /\b(rent afford|how much rent|30% rule|30 percent rule|rent budget|can i afford.*(flat|apartment|house|rent))\b/i,
+    run: () => `The ${toolLink('rent-affordability')} caps your rent from your take-home pay using the 25 / 30 / 35 / 40% rules, and scores a specific rent you are considering.\n\nFor the loan side of a purchase, the ${toolLink('emi-calc')} gives EMI and total interest.`,
+  },
+  {
+    id: 'unit-price',
+    match: /\b(unit price|price per|which (is|pack|one) (is )?cheap\w*|cheap(est|er) (per|pack|option)|better (deal|value)|value for money|per (gram|ml|kg|litre|piece)|bulk buy|bigger pack)\b/i,
+    run: () => `The ${toolLink('unit-price-compare', 'Unit Price Comparator')} compares two packs after converting both to the same base unit — grams, ml, cm, pieces or area — and tells you which is cheaper and by what percentage.`,
+  },
+  {
+    id: 'roman-numerals',
+    match: /\b(roman numeral|roman number|mmxx|\bix\b|\bxii\b|numeral converter)\b/i,
+    run: () => `The ${toolLink('roman-numeral')} converts both directions: any number from 1 to 3999 into Roman numerals, and any valid numeral back into a number.`,
+  },
+  {
+    id: 'fractions',
+    match: /\b(fraction|numerator|denominator|simplify.*(fraction|ratio)|mixed number|add.*\/)\b/i,
+    run: () => `The ${toolLink('fraction-calc')} adds, subtracts, multiplies and divides two fractions, then gives the simplified fraction, the mixed number, the decimal and the percentage.`,
+  },
+  {
+    id: 'passphrase',
+    match: /\b(passphrase|diceware|memorable password|word password|xkcd password)\b/i,
+    run: () => `The ${toolLink('passphrase-gen')} builds random word passphrases — pick 3 to 12 words, a separator, optional capitalisation and a number — and shows the entropy in bits.\n\nNeed a conventional random string instead? Use the ${toolLink('password-gen')}, then check it with the ${toolLink('password-strength')}.`,
+  },
+  {
+    id: 'subnet',
+    match: /\b(subnet|cidr|netmask|subnet mask|wildcard mask|broadcast address|ip range|vlsm|usable hosts|\/24|\/16)\b/i,
+    run: () => `The ${toolLink('subnet-calc')} splits any IPv4 CIDR into network address, subnet mask, wildcard, broadcast, first and last usable host, total addresses and usable hosts — plus whether the range is private or public.\n\nFor live lookups use the ${toolLink('ip-lookup')} or the ${toolLink('dns-lookup')}.`,
+  },
+  {
+    id: 'mac-address',
+    match: /\b(mac address|physical address|hwaddr|aa:bb:cc)\b/i,
+    run: () => `The ${toolLink('mac-address-gen')} generates random MAC addresses in colon, hyphen, Cisco-dot or plain format, unicast or multicast, and can set the "locally administered" bit so they never collide with a real vendor prefix — ideal for VMs, containers and tests.`,
+  },
+  {
+    id: 'ports',
+    match: /\b(port number|common ports|which port|ports list|port 22|port 443|port 3306|port 5432|port 8080|well.?known ports)\b/i,
+    run: () => `The ${toolLink('port-reference')} is a searchable list of the TCP and UDP ports that matter — SSH, DNS, HTTP(S), SMTP, IMAP, RDP, and every common database port — with what each one is for.\n\nTo see what a server actually answers, use the ${toolLink('http-headers')} or the ${toolLink('api-tester')}.`,
+  },
+  {
+    id: 'json-diff',
+    match: /\b(json diff|diff json|compare (two )?json|json compare|difference between.*json|api response.*chang)\b/i,
+    run: () => `The ${toolLink('json-diff')} compares two JSON documents and lists every added, removed and changed value with its full path (including array indexes).\n\nTo tidy one document first use the ${toolLink('json-format')}, and to test a single value use the ${toolLink('regex-tester')}.`,
+  },
+  {
+    id: 'html-to-jsx',
+    match: /\b(html to jsx|jsx convert|classname|convert.*jsx|react.*html attribute)\b/i,
+    run: () => `The ${toolLink('html-to-jsx')} converts HTML to JSX: class → className, for → htmlFor, inline style strings → style objects, void tags self-closed, comments turned into {/* */} and entities escaped.\n\nThen paste it into the ${toolLink('code-playground')} to see it run.`,
+  },
+  {
+    id: 'rem-px',
+    match: /\b(rem to px|px to rem|rem\b.*convert|root font size|em to px|css (unit|length) convert)\b/i,
+    run: () => `The ${toolLink('rem-px-conv')} converts px, rem, em, pt, percent, cm, in and mm using your own root font size, so you can keep spacing accessible and responsive.`,
+  },
+  {
+    id: 'env-file',
+    match: /(^|[^a-z0-9])\.env\b|\bdotenv\b|\benv files?\b|\bprocess\.env\b|\benvironment variables?\b|\bconfig secrets?\b/i,
+    run: () => `The ${toolLink('env-parser')} reads a .env file and turns it into JSON, shell exports or a Markdown table — with secret-looking values masked on screen. It can also go the other way, JSON → .env, flattening nested objects.\n\nThen add it to your ignores with the ${toolLink('gitignore-generator')}.`,
+  },
+  {
+    id: 'ascii-art',
+    match: /\b(ascii art|text art|banner text|figlet|ascii text|block letters)\b/i,
+    run: () => `The ${toolLink('ascii-art-text')} renders text as a five-row block banner in the fill character you choose — great for a README header or a terminal splash. The output scrolls sideways instead of breaking your layout.`,
+  },
+  {
+    id: 'unicode-inspect',
+    match: /\b(unicode|code ?point|utf-?8|utf-?16|html entity|character code|surrogate pair|zero width)\b/i,
+    run: () => `The ${toolLink('unicode-inspector')} inspects every character in a string — code point, decimal, Unicode block, UTF-8 bytes, HTML entity and the JavaScript escape — or looks up a single code point like U+1F600.\n\nFor readable text transformations, the ${toolLink('ascii-convert')} and ${toolLink('braille-translator')} are handy companions.`,
+  },
+  {
+    id: 'keyword-density',
+    match: /\b(keyword density|word frequency|word density|seo density|focus keyword|keyword count|stuffing)\b/i,
+    run: () => `The ${toolLink('keyword-density')} counts total and unique words, ranks the top single words and repeated two-word phrases, and scores a focus keyword for density.\n\nFor overall on-page checks use the ${toolLink('seo-mini-audit')} and the ${toolLink('meta-generator')}.`,
   },
   {
     id: 'image',
