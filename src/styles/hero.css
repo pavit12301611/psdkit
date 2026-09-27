@@ -237,6 +237,15 @@
   border-radius: var(--r-lg); padding: 18px;
   display: flex; align-items: center; justify-content: center;
   min-width: 0; max-width: 100%;
+  /* A demo that overflows — flexbox with flex-wrap:nowrap, a wide canvas — must
+     scroll inside its own dashed box. With overflow visible it widened every
+     ancestor up to <html> and made the whole page scroll sideways on phones. */
+  overflow-x: auto;
+  /* Plain centering hides the start of overflowing content with no way to reach
+     it; `safe` falls back to start-aligned when the content is too wide. The
+     duplicate declaration keeps plain centering where `safe` is unsupported. */
+  justify-content: center;
+  justify-content: safe center;
 }
 .canvas-stage > * { min-width: 0; max-width: 100%; }
 .big-timer {

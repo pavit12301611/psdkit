@@ -153,6 +153,7 @@ Copy `.env.example` to `.env` for local testing if needed. Keep real secrets out
 - `npm run test:smoke` — jsdom smoke suite only
 - `npm run audit` — text-fit audit only
 - `npm run audit:tools` — deep tool auditor, `--mode=healthy|hostile`, `--only=<id>` to iterate on one tool
+- `npm run audit:browser` — **opt-in** real-Chromium audit, `--url=http://localhost:5173`
 - `npm run build` — generates sitemap/robots then builds production assets
 - `npm run preview` — preview the production build
 
@@ -180,12 +181,28 @@ The hostile pass is the one that matters. A tool is allowed to fail to do its jo
 - the vendored libraries genuinely work: pdf-lib emits a real `%PDF-` document, marked/turndown/beautifiers produce correct output
 - no tool pulls a library from a CDN, no tool calls `getContext` without the null-safe helper, and no handler reads `e.currentTarget` after an `await`
 
+### The real-browser audit
+
+`scripts/audit-browser.mjs` measures what Chromium actually painted rather than modelling it. It drives the site with puppeteer-core, visits all 201 tools and 13 pages at three viewports (390 / 768 / 1280), fills every field so live-computing tools render their real output, and reports:
+
+- **page-scrolls-sideways** — the whole document is wider than the viewport
+- **text-escapes-box** — content wider than its own box while `overflow-x` is still `visible`, so nothing clips or scrolls it
+- **text-cut-off** — content reaching past an `overflow:hidden` ancestor, i.e. silently truncated
+- **markup-shown-as-text** — raw HTML painted as visible text
+- **runtime-error** — any uncaught exception, console error or failed same-origin request
+
+A finding counts only when the content crosses the *visible bound* — the viewport edge or the nearest clipping ancestor, whichever comes first. A decorative badge sitting 5px past its own container but still inside the page is not a defect, and a swipeable `.ai-chips` row whose children run off-screen is working as designed. The detector is checked against deliberately injected defects so it cannot silently go blind.
+
+Getting a browser here took some doing: Playwright's and Puppeteer's installers download from `cdn.playwright.dev` and `storage.googleapis.com`, neither of which is reachable — only the npm registry is. `@sparticuz/chromium` ships the Chromium binary *inside its npm tarball*, so it installs from the registry alone. That build links against NSS/NSPR (`libnss3`, `libnspr4`, `libnssutil3`), which are absent and cannot be apt-installed; the package also ships an `al2023.tar.br` bundle containing exactly those libraries, so `scripts/browser.mjs` decompresses it with Node's built-in brotli and points `LD_LIBRARY_PATH` at it. No system packages required.
+
 `scripts/audit-overflow.mjs` runs a small layout model over every tool at seven viewport widths (360 → 1440). It estimates text advance widths per character, compares them against the width the real CSS gives each container, and reports two levels:
 
 - **HARD** — text that genuinely cannot fit its box (fails the run)
 - **SOFT** — text that fits but wraps into an unreadable block (warning)
 
-Because jsdom has no layout engine, the model encodes `src/styles/*.css`. If you change wrapping or grid behaviour there, update the tables in the auditor.
+Because jsdom has no layout engine, the model encodes `src/styles/*.css`. If you change wrapping or grid behaviour there, update the tables in the auditor. It runs in the default `npm test`; the Chromium audit above is the ground truth when you can run it.
+
+It found what the model could not: the flexbox playground's `flex-wrap:nowrap` demo widened every ancestor up to `<html>` and made the whole page scroll sideways on phones (`.canvas-stage` now scrolls its own overflow), and the home hero's scroll cue passed `icon()` — an HTML *string* — as a bare child of `el()`, which stringifies children into text nodes. That painted ~300 characters of raw `<svg>` source on screen and, with `width:max-content`, blew the element out to 1761px and broke its auto-margin centering.
 
 ## Project structure
 
@@ -196,6 +213,8 @@ scripts/gen-sitemap.mjs      sitemap generator (derived from the catalog)
 scripts/smoke.mjs            smoke tests for tools + pages + count drift
 scripts/audit-overflow.mjs   text-fit layout auditor
 scripts/audit-tools.mjs      deep tool auditor (healthy + hostile passes)
+scripts/audit-browser.mjs    real-Chromium layout + error audit (opt-in)
+scripts/browser.mjs          Chromium launcher, incl. the NSS library bootstrap
 scripts/jsdom-env.mjs        shared jsdom environment for both auditors
 src/ai/                      chat UI + local knowledge brain
 src/data/catalog.js          all tool records + TOOL_COUNT

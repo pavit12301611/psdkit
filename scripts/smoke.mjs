@@ -519,6 +519,51 @@ await test('copy button confirms after awaiting the clipboard', async () => {
   if (span.textContent !== 'Copied!') throw new Error(`label stayed "${span.textContent}" — the handler threw after its await`);
 });
 
+await test('no page or tool renders markup as visible text', async () => {
+  /* icon() returns an HTML string; el() turns a string child into a text node.
+     The home hero's scroll cue did exactly that, painting ~300 characters of raw
+     <svg> source on screen and blowing the element out to 1761px wide. Showing
+     source is the point inside pre/code/result panes, so those are exempt. */
+  const looksLikeMarkup = /<\/?[a-z][a-z0-9]*[\s>]/i;
+  const offenders = [];
+
+  const scan = (root, label) => {
+    for (const node of root.querySelectorAll('*')) {
+      if (node.closest('pre, code, textarea, .code, .result-out, .result-body, .code-area')) continue;
+      for (const child of node.childNodes) {
+        if (child.nodeType === 3 && looksLikeMarkup.test(child.nodeValue || '')) {
+          offenders.push(`${label}: "${child.nodeValue.trim().slice(0, 48)}"`);
+          break;
+        }
+      }
+    }
+  };
+
+  const host = document.createElement('div');
+  document.body.append(host);
+  const { renderHome } = await import('../src/pages/home.js');
+  const { renderToolsPage } = await import('../src/pages/tools.js');
+  const { renderLearnPage } = await import('../src/pages/learn.js');
+  const { renderHelpPage } = await import('../src/pages/help.js');
+  const { renderNotFoundPage } = await import('../src/pages/notfound.js');
+  for (const [label, fn] of [['home', renderHome], ['learn', renderLearnPage], ['help', renderHelpPage], ['404', renderNotFoundPage]]) {
+    host.innerHTML = '';
+    fn(host, null);
+    scan(host, label);
+  }
+  host.innerHTML = '';
+  renderToolsPage(host, null);
+  scan(host, 'tools');
+  for (const meta of TOOLS) {
+    host.innerHTML = '';
+    getTool(meta.id)?.mount(host);
+    await new Promise((r) => setTimeout(r, 0));
+    scan(host, meta.id);
+  }
+  host.remove();
+  if (offenders.length) throw new Error(`${offenders.length} element(s) show escaped markup: ${offenders.slice(0, 4).join('; ')}`);
+});
+
 console.log('\n— Dependency guards —');
 await test('tool libraries are vendored, never pulled from a CDN', async () => {
   /* The QR tools died with "Failed to load https://cdn.jsdelivr.net/…" whenever

@@ -98,7 +98,11 @@ export function renderHome(root) {
       ),
     ),
     el('a.hero-scroll-cue', { href: '#categories', onclick: scrollToCategories, 'aria-label': 'Scroll to categories' },
-      el('span', { text: 'Explore the toolkit' }), icon('chevronDown', 15),
+      /* icon() returns an HTML string, and el() turns a string child into a text
+         node — passing it bare rendered the raw <svg> markup on screen as ~300
+         characters of escaped source, which with width:max-content blew the cue
+         out to 1761px and broke its auto-margin centering. */
+      el('span', { text: 'Explore the toolkit' }), el('span', { html: icon('chevronDown', 15) }),
     ),
   );
 
