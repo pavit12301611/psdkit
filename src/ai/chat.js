@@ -8,6 +8,7 @@ import { icon } from '../icons.js';
 import { localAnswer, siteIndexForPrompt } from './brain.js';
 import { getAiFeedback, saveAiFeedback } from '../prefs.js';
 import { t } from '../data/i18n.js';
+import { TOOL_COUNT } from '../data/catalog.js';
 
 const CONV_KEY = 'psdkit_ai_conversations';
 const LEGACY_KEY = 'psdkit_ai_history';
@@ -129,7 +130,7 @@ export function initChat() {
     if (currentToolContext) {
       return `You’re looking at **${currentToolContext.name}**. Ask me how to use it, what it’s good for, or what similar tools exist.`;
     }
-    return `Hey! I’m the **PSDKIT AI** — I know all 175 tools and every page of this site. Ask me about tool discovery, tech words, coding help or step-by-step guides.`;
+    return `Hey! I’m the **PSDKIT AI** — I know all ${TOOL_COUNT} tools and every page of this site. Ask me about tool discovery, tech words, coding help or step-by-step guides.`;
   }
 
   function messageFeedbackRow(message) {

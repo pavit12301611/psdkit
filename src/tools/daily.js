@@ -1,7 +1,7 @@
 /* ============================================================
    DAILY TOOLS (50) — calculators, converters, timers, generators
    ============================================================ */
-import { el, fmt, copyText, toast, downloadFile, readFileAs, debounce } from '../ui.js';
+import { el, fmt, copyText, toast, downloadFile, readFileAs, debounce, requireCtx } from '../ui.js';
 import { icon } from '../icons.js';
 import {
   mountFormTool, converterTool, UNITS, num, wordsCapitalise, renderResult,
@@ -556,13 +556,29 @@ export const DAILY_IMPLS = {
       const fmtZone = (tz) => new Intl.DateTimeFormat('en-GB', {
         timeZone: tz, dateStyle: 'full', timeStyle: 'medium', hour12: true,
       }).format(base);
+      /* Stats must stay short — a full "Sunday, 27 September 2026 at 07:55 pm"
+         string never fits a stat tile, so split it into compact parts and keep
+         the full sentence in the copyable text block. */
+      const parts = (tz) => {
+        const d = new Intl.DateTimeFormat('en-GB', { timeZone: tz, weekday: 'short', day: '2-digit', month: 'short' }).format(base);
+        const time = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true }).format(base);
+        const offset = new Intl.DateTimeFormat('en-GB', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(base)
+          .find((p) => p.type === 'timeZoneName')?.value || '';
+        return { d, time, offset };
+      };
+      const from = parts(v.from);
+      const to = parts(v.to);
+      const zoneName = (tz) => tz.replace(/_/g, ' ');
       return {
         title: 'Time zone conversion',
         stats: [
-          { label: 'In source zone', value: fmtZone(v.from) },
-          { label: 'In target zone', value: fmtZone(v.to) },
+          { label: `${zoneName(v.from)} · time`, value: from.time },
+          { label: `${zoneName(v.to)} · time`, value: to.time },
+          { label: 'Source date', value: from.d },
+          { label: 'Target date', value: to.d },
+          { label: 'Offset', value: `${from.offset} → ${to.offset}` },
         ],
-        text: `${v.from}: ${fmtZone(v.from)}\n${v.to}: ${fmtZone(v.to)}`,
+        text: `${v.from} (${from.offset}): ${fmtZone(v.from)}\n${v.to} (${to.offset}): ${fmtZone(v.to)}`,
       };
     },
   },
@@ -1085,7 +1101,10 @@ export const DAILY_IMPLS = {
       const listIn = el('textarea.textarea', { rows: 6 });
       listIn.value = 'Pizza\nBurger\nSushi\nPasta\nSalad\nTacos';
       const canvas = el('canvas', { width: 320, height: 320, class: 'stage-canvas' });
-      const ctx = canvas.getContext('2d');
+      /* Without a 2D context there is no wheel to draw, so say so instead of
+         throwing inside the render loop and leaving a blank tool. */
+      const ctx = requireCtx(canvas, container);
+      if (!ctx) return;
       const resultEl = el('div.center-x.mt-2');
       let items = [], angle = 0, spinning = false;
 

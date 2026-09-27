@@ -9,7 +9,7 @@ import { renderProfilePage } from './pages/profile.js';
 import { renderAdminPage } from './pages/admin.js';
 import { renderNotFoundPage } from './pages/notfound.js';
 import { el } from './ui.js';
-import { TOOL_MAP, TOOLS, CATEGORIES } from './tools/index.js';
+import { TOOL_MAP, TOOLS, CATEGORIES, TOOL_COUNT } from './data/catalog.js';
 import { LANGUAGE_GUIDES } from './data/guides.js';
 import { applyMeta, breadcrumbLd, faqLd, homeLd } from './seo.js';
 
@@ -31,7 +31,7 @@ function rememberRoute() {
 function routeMeta(parts) {
   const [a, b] = parts;
   if (!a || a === 'home') return {
-    title: 'PSDKIT Pro — 175 Free Online Tools for Daily Life, Internet & Coding',
+    title: `PSDKIT Pro — ${TOOL_COUNT} Free Online Tools for Daily Life, Internet & Coding`,
     description: 'Free browser-based tools for everyday tasks, the web, PDFs, images, coding, learning and more — plus an AI assistant and community toolbox.',
     ld: homeLd(),
   };
@@ -44,7 +44,7 @@ function routeMeta(parts) {
   }
   if (a === 'tools') return {
     title: 'All Tools — PSDKIT Pro',
-    description: 'Browse all 175 PSDKIT Pro tools with smart search, favourites and recent history.',
+    description: `Browse all ${TOOL_COUNT} PSDKIT Pro tools with smart search, favourites and recent history.`,
   };
   if (a === 'tool' && b && TOOL_MAP[b]) {
     const tool = TOOL_MAP[b];

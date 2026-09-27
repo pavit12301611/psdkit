@@ -1,22 +1,12 @@
 /* ============================================================
-   ESSENTIAL TOOLS (25) — QR/PDF/image/colour/hash/audio/camera
-   Heavy libraries (qrcode, pdf-lib, pdf.js, jsqr) lazy-load on use.
+   ESSENTIAL TOOLS — QR/PDF/image/colour/hash/audio/camera
+   Heavy libraries (qrcode, pdf-lib, pdf.js, jsqr) are vendored
+   and lazy-load into their own chunk on first use.
    ============================================================ */
-import { el, fmt, copyText, toast, downloadFile, readFileAs, dropZone, loadScript, debounce, copyButton } from '../ui.js';
+import { el, fmt, copyText, toast, downloadFile, readFileAs, dropZone, debounce, copyButton, ctx2d, requireCtx, CANVAS_UNSUPPORTED } from '../ui.js';
 import { icon } from '../icons.js';
 import { mountFormTool, num, md5, shaDigest, renderResult } from './formkit.js';
-
-const QR_LIB = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js';
-const PDFLIB = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
-const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-const JSQR = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
-
-async function ensurePdfjs() {
-  await loadScript(PDFJS);
-  window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
-  return window.pdfjsLib;
-}
+import { loadQr, loadJsQr, loadPdfLib, loadPdfJs } from './libs.js';
 
 function canvasToBlob(canvas, type = 'image/png', quality = 0.85) {
   return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
@@ -44,9 +34,9 @@ export const ESSENTIAL_IMPLS = {
     live: true,
     async compute(v) {
       if (!v.text?.trim()) return 'Enter some text or a link.';
-      await loadScript(QR_LIB);
+      const QRCode = await loadQr();
       const dataUrl = await new Promise((resolve, reject) => {
-        window.QRCode.toDataURL(v.text, {
+        QRCode.toDataURL(v.text, {
           width: Number(v.size) || 320, margin: 2,
           color: { dark: v.dark, light: v.light },
         }, (err, url) => err ? reject(err) : resolve(url));
@@ -86,10 +76,11 @@ export const ESSENTIAL_IMPLS = {
         const canvas = document.createElement('canvas');
         canvas.width = img.width;
         canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
+        const ctx = ctx2d(canvas);
+        if (!ctx) { toast(CANVAS_UNSUPPORTED, 'x'); return; }
         ctx.drawImage(img, 0, 0);
-        await loadScript(JSQR);
-        const code = window.jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+        const jsQR = await loadJsQr();
+        const code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
         if (code?.data) setResult(code.data);
         else toast('No QR code found in that image', 'x');
       };
@@ -102,13 +93,15 @@ export const ESSENTIAL_IMPLS = {
           video.srcObject = stream;
           preview.innerHTML = '';
           preview.append(video);
-          await loadScript(JSQR);
+          const jsQR = await loadJsQr();
           const scan = () => {
             if (!stream) return;
             const c = document.createElement('canvas');
             c.width = video.videoWidth; c.height = video.videoHeight;
-            c.getContext('2d').drawImage(video, 0, 0);
-            const code = window.jsQR(c.getContext('2d').getImageData(0, 0, c.width, c.height).data, c.width, c.height);
+            const cctx = ctx2d(c);
+            if (!cctx) return;
+            cctx.drawImage(video, 0, 0);
+            const code = jsQR(cctx.getImageData(0, 0, c.width, c.height).data, c.width, c.height);
             if (code?.data) {
               setResult(code.data);
               stopCamera();
@@ -173,8 +166,7 @@ export const ESSENTIAL_IMPLS = {
               if (files.length < 2) { toast('Add at least 2 PDF files', 'info'); return; }
               toast('Merging…');
               try {
-                await loadScript(PDFLIB);
-                const { PDFDocument } = window.PDFLib;
+                const { PDFDocument } = await loadPdfLib();
                 const merged = await PDFDocument.create();
                 for (const f of files) {
                   const bytes = await readFileAs(f, 'buffer');
@@ -205,7 +197,7 @@ export const ESSENTIAL_IMPLS = {
         onFiles: async (fs) => {
           file = fs[0];
           try {
-            const pdfjs = await ensurePdfjs();
+            const pdfjs = await loadPdfJs();
             const doc = await pdfjs.getDocument({ data: await readFileAs(file, 'buffer') }).promise;
             info.textContent = `${file.name} — ${doc.numPages} pages`;
           } catch {
@@ -233,8 +225,7 @@ export const ESSENTIAL_IMPLS = {
             onclick: async () => {
               if (!file) { toast('Choose a PDF first', 'info'); return; }
               try {
-                await loadScript(PDFLIB);
-                const { PDFDocument } = window.PDFLib;
+                const { PDFDocument } = await loadPdfLib();
                 const src = await PDFDocument.load(await readFileAs(file, 'buffer'), { ignoreEncryption: true });
                 const max = src.getPageCount();
                 const idx = pagesIn.value.trim() ? parseRanges(pagesIn.value, max) : Array.from({ length: max }, (_, i) => i);
@@ -278,8 +269,7 @@ export const ESSENTIAL_IMPLS = {
             onclick: async () => {
               if (!files.length) { toast('Add some images first', 'info'); return; }
               try {
-                await loadScript(PDFLIB);
-                const { PDFDocument } = window.PDFLib;
+                const { PDFDocument } = await loadPdfLib();
                 const doc = await PDFDocument.create();
                 for (const f of files) {
                   const bytes = await readFileAs(f, 'buffer');
@@ -328,7 +318,7 @@ export const ESSENTIAL_IMPLS = {
               if (!file) { toast('Choose a PDF first', 'info'); return; }
               out.innerHTML = '<div class="skeleton" style="height:120px"></div>';
               try {
-                const pdfjs = await ensurePdfjs();
+                const pdfjs = await loadPdfJs();
                 const doc = await pdfjs.getDocument({ data: await readFileAs(file, 'buffer') }).promise;
                 out.innerHTML = '';
                 for (let i = 1; i <= doc.numPages; i++) {
@@ -337,7 +327,9 @@ export const ESSENTIAL_IMPLS = {
                   const canvas = document.createElement('canvas');
                   canvas.width = viewport.width;
                   canvas.height = viewport.height;
-                  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                  const pageCtx = ctx2d(canvas);
+                  if (!pageCtx) throw new Error(CANVAS_UNSUPPORTED);
+                  await page.render({ canvasContext: pageCtx, viewport }).promise;
                   const blob = await canvasToBlob(canvas, 'image/png');
                   const url = URL.createObjectURL(blob);
                   out.append(el('div.card', { style: { padding: '14px' } },
@@ -392,7 +384,9 @@ export const ESSENTIAL_IMPLS = {
               const canvas = document.createElement('canvas');
               canvas.width = Math.round(img.width * scale);
               canvas.height = Math.round(img.height * scale);
-              canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+              const ictx = ctx2d(canvas);
+              if (!ictx) { toast(CANVAS_UNSUPPORTED, 'x'); return; }
+              ictx.drawImage(img, 0, 0, canvas.width, canvas.height);
               const blob = await canvasToBlob(canvas, 'image/jpeg', quality.value / 100);
               const saved = Math.round((1 - blob.size / file.size) * 100);
               out.innerHTML = '';
@@ -456,7 +450,9 @@ export const ESSENTIAL_IMPLS = {
               const h = Math.max(1, +hIn.value || img.height);
               const canvas = document.createElement('canvas');
               canvas.width = w; canvas.height = h;
-              canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+              const rctx = ctx2d(canvas);
+              if (!rctx) { toast(CANVAS_UNSUPPORTED, 'x'); return; }
+              rctx.drawImage(img, 0, 0, w, h);
               const blob = await canvasToBlob(canvas, 'image/png');
               downloadFile(`resized-${w}x${h}.png`, blob);
               out.innerHTML = '';
@@ -493,7 +489,8 @@ export const ESSENTIAL_IMPLS = {
               if (!img) { toast('Choose an image first', 'info'); return; }
               const canvas = document.createElement('canvas');
               canvas.width = img.width; canvas.height = img.height;
-              const ctx = canvas.getContext('2d');
+              const ctx = ctx2d(canvas);
+              if (!ctx) { toast(CANVAS_UNSUPPORTED, 'x'); return; }
               if (fmtIn.value === 'image/jpeg') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
               ctx.drawImage(img, 0, 0);
               const blob = await canvasToBlob(canvas, fmtIn.value, 0.92);
@@ -880,7 +877,8 @@ export const ESSENTIAL_IMPLS = {
   'whiteboard': {
     mount(container) {
       const canvas = el('canvas', { class: 'stage-canvas', width: 800, height: 480 });
-      const ctx = canvas.getContext('2d');
+      const ctx = requireCtx(canvas, container);
+      if (!ctx) return;
       const state = { drawing: false, color: '#161514', size: 4, last: null };
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, 800, 480);
@@ -943,7 +941,8 @@ export const ESSENTIAL_IMPLS = {
   'signature-pad': {
     mount(container) {
       const canvas = el('canvas', { class: 'stage-canvas', width: 800, height: 300, style: { background: '#fff', cursor: 'crosshair' } });
-      const ctx = canvas.getContext('2d');
+      const ctx = requireCtx(canvas, container);
+      if (!ctx) return;
       let drawing = false, last = null;
       ctx.lineCap = ctx.lineJoin = 'round';
       ctx.lineWidth = 2.4;
@@ -974,7 +973,8 @@ export const ESSENTIAL_IMPLS = {
             onclick: () => {
               const out = document.createElement('canvas');
               out.width = 800; out.height = 300;
-              const octx = out.getContext('2d');
+              const octx = ctx2d(out);
+              if (!octx) { toast(CANVAS_UNSUPPORTED, 'x'); return; }
               octx.drawImage(canvas, 0, 0);
               const data = octx.getImageData(0, 0, 800, 300);
               for (let i = 0; i < data.data.length; i += 4) {
@@ -1019,7 +1019,9 @@ export const ESSENTIAL_IMPLS = {
               const c = document.createElement('canvas');
               c.width = video.videoWidth || 640;
               c.height = video.videoHeight || 480;
-              c.getContext('2d').drawImage(video, 0, 0);
+              const sctx = ctx2d(c);
+              if (!sctx) { toast(CANVAS_UNSUPPORTED, 'x'); return; }
+              sctx.drawImage(video, 0, 0);
               const a = el('a', { href: c.toDataURL('image/png'), download: 'snapshot.png' });
               document.body.append(a); a.click(); a.remove();
             },
@@ -1075,8 +1077,13 @@ export const ESSENTIAL_IMPLS = {
         style: {
           height: '320px', borderRadius: '18px', background: '#fff', border: '1.5px solid var(--cream-line)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: '44px', color: 'var(--muted-light)',
+          fontFamily: 'var(--serif)', fontStyle: 'italic',
+          /* a fixed 44px word is wider than a phone panel — scale it and let
+             it break so the caption stays inside the rounded box */
+          fontSize: 'clamp(20px, 6.5vw, 44px)', lineHeight: 1.15,
+          color: 'var(--muted-light)',
           transition: 'background .35s ease, color .35s ease', cursor: 'pointer', textAlign: 'center', padding: '20px',
+          maxWidth: '100%', overflowWrap: 'anywhere', wordBreak: 'break-word',
         },
         text: 'Tap to toggle flashlight',
       });
@@ -1232,8 +1239,7 @@ export const ESSENTIAL_IMPLS = {
           el('button.btn.btn-accent', { html: `${icon('file', 16)} Add watermark`, onclick: async () => {
             if (!file) return toast('Choose a PDF first', 'info');
             try {
-              await loadScript(PDFLIB);
-              const { PDFDocument, rgb, degrees, StandardFonts } = window.PDFLib;
+              const { PDFDocument, rgb, degrees, StandardFonts } = await loadPdfLib();
               const pdf = await PDFDocument.load(await readFileAs(file, 'buffer'), { ignoreEncryption: true });
               const font = await pdf.embedFont(StandardFonts.HelveticaBold);
               const hex = colorIn.value.replace('#', '');
@@ -1278,8 +1284,7 @@ export const ESSENTIAL_IMPLS = {
           el('button.btn.btn-accent', { html: `${icon('hash', 16)} Add page numbers`, onclick: async () => {
             if (!file) return toast('Choose a PDF first', 'info');
             try {
-              await loadScript(PDFLIB);
-              const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
+              const { PDFDocument, rgb, StandardFonts } = await loadPdfLib();
               const pdf = await PDFDocument.load(await readFileAs(file, 'buffer'), { ignoreEncryption: true });
               const font = await pdf.embedFont(StandardFonts.Helvetica);
               pdf.getPages().forEach((page, index, arr) => {
@@ -1314,16 +1319,17 @@ export const ESSENTIAL_IMPLS = {
           el('button.btn.btn-accent', { html: `${icon('qr', 16)} Generate batch`, onclick: async () => {
             const items = linesIn.value.split(/\n+/).map((line) => line.trim()).filter(Boolean);
             if (!items.length) return toast('Add at least one line', 'info');
-            await loadScript(QR_LIB);
+            const QRCode = await loadQr();
             sheetHost.innerHTML = '';
-            const urls = await Promise.all(items.map((value) => new Promise((resolve, reject) => window.QRCode.toDataURL(value, { width: Number(sizeIn.value || 180), margin: 1 }, (err, url) => err ? reject(err) : resolve({ value, url })))));
+            const urls = await Promise.all(items.map((value) => new Promise((resolve, reject) => QRCode.toDataURL(value, { width: Number(sizeIn.value || 180), margin: 1 }, (err, url) => err ? reject(err) : resolve({ value, url })))));
             const canvas = document.createElement('canvas');
             const cols = 2;
             const card = Number(sizeIn.value || 180) + 40;
             const rows = Math.ceil(urls.length / cols);
             canvas.width = cols * card;
             canvas.height = rows * card;
-            const ctx = canvas.getContext('2d');
+            const ctx = ctx2d(canvas);
+            if (!ctx) { toast(CANVAS_UNSUPPORTED, 'x'); return; }
             ctx.fillStyle = '#FAF7F2';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             for (const [index, item] of urls.entries()) {
@@ -1361,7 +1367,8 @@ export const ESSENTIAL_IMPLS = {
         const img = await loadImage(file);
         const canvas = document.createElement('canvas');
         canvas.width = 80; canvas.height = Math.max(1, Math.round((img.height / img.width) * 80));
-        const ctx = canvas.getContext('2d');
+        const ctx = ctx2d(canvas);
+        if (!ctx) { toast(CANVAS_UNSUPPORTED, 'x'); return; }
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
         const buckets = new Map();
@@ -1396,9 +1403,9 @@ export const ESSENTIAL_IMPLS = {
     live: false,
     buttonLabel: 'Generate contact QR',
     async compute(v) {
-      await loadScript(QR_LIB);
+      const QRCode = await loadQr();
       const card = ['BEGIN:VCARD', 'VERSION:3.0', `FN:${v.name || ''}`, `ORG:${v.org || ''}`, `TITLE:${v.title || ''}`, `TEL:${v.phone || ''}`, `EMAIL:${v.email || ''}`, `URL:${v.url || ''}`, 'END:VCARD'].join('\n');
-      const dataUrl = await new Promise((resolve, reject) => window.QRCode.toDataURL(card, { width: 320, margin: 2 }, (err, url) => err ? reject(err) : resolve(url)));
+      const dataUrl = await new Promise((resolve, reject) => QRCode.toDataURL(card, { width: 320, margin: 2 }, (err, url) => err ? reject(err) : resolve(url)));
       return {
         title: 'vCard QR',
         html: `<div style="display:flex;flex-direction:column;align-items:center;gap:12px"><img src="${dataUrl}" alt="vCard QR" style="width:min(320px,100%);border-radius:16px;border:1px solid var(--cream-line)"><a class="copy-btn" href="${dataUrl}" download="vcard-qr.png">${icon('download', 13)} Download PNG</a></div>`,

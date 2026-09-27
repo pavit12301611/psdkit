@@ -1,9 +1,11 @@
 /* ============================================================
    INTERNET TOOLS (25) — network lookups, site inspection, link tools
    ============================================================ */
-import { el, fmt, copyText, toast, debounce, loadScript } from '../ui.js';
+import { el, fmt, copyText, toast, debounce } from '../ui.js';
+import { loadQr } from './libs.js';
 import { icon } from '../icons.js';
 import { mountFormTool, num } from './formkit.js';
+import { TOOL_COUNT } from '../data/catalog.js';
 
 /* Fetch through a CORS-friendly relay when direct fetch fails */
 const PROXY = 'https://api.allorigins.win/raw?url=';
@@ -302,13 +304,15 @@ export const INTERNET_IMPLS = {
         ['Device memory', navigator.deviceMemory ? `${navigator.deviceMemory} GB (approx)` : '—'],
         ['Connection', conn.effectiveType ? `${conn.effectiveType} · ${conn.downlink ?? '?'} Mbps` : '—'],
         ['Timezone', Intl.DateTimeFormat().resolvedOptions().timeZone],
-        ['Local time', new Date().toString()],
+        /* a full Date.toString() is a 60-char sentence — far too long for a
+           stat tile, so show a compact clock and keep the rest in the report */
+        ['Local time', new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })],
       ];
       container.append(
         el('div.stat-grid', ...rows.map(([k, v]) => el('div.stat', el('div.k', { text: k }), el('div.v', { text: String(v), style: { fontSize: '13.5px', wordBreak: 'break-word' } })))),
         el('div.tool-actions', { style: { marginTop: '16px' } },
-          el('button.btn.btn-soft', { html: `${icon('copy', 15)} Copy full report`, onclick: () => copyText(rows.map(([k, v]) => `${k}: ${v}`).join('\n')) })),
-        el('div.note.mt-3', { html: icon('shield', 17) + `<span>Your raw user-agent string:\n<code>${ua}</code></span>` }),
+          el('button.btn.btn-soft', { html: `${icon('copy', 15)} Copy full report`, onclick: () => copyText(`${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\nUser agent: ${ua}`) })),
+        el('div.note.mt-3', { html: icon('shield', 17) + `<span>Your raw user-agent string:<br><code class="inline">${ua}</code></span>` }),
       );
     },
   },
@@ -425,7 +429,7 @@ export const INTERNET_IMPLS = {
   /* 12 ── Meta generator */
   'meta-generator': {
     fields: [
-      { id: 'title', label: 'Page title', type: 'text', default: 'PSDKIT Pro — 175 Free Online Tools' },
+      { id: 'title', label: 'Page title', type: 'text', default: `PSDKIT Pro — ${TOOL_COUNT} Free Online Tools` },
       { id: 'desc', label: 'Meta description', type: 'textarea', rows: 3, default: 'Free daily, internet, essential and coding tools that run in your browser.' },
       { id: 'url', label: 'Canonical URL', type: 'text', default: 'https://psdkit.vercel.app' },
       { id: 'img', label: 'Social image URL', type: 'text', default: 'https://psdkit.vercel.app/logo.png' },
@@ -664,7 +668,8 @@ export const INTERNET_IMPLS = {
           title: '✅ CORS is allowed',
           stats: [
             { label: 'Status', value: res.status },
-            { label: 'Allow-Origin', value: acao || 'not sent (but request succeeded)' },
+            /* keep stat tiles short — the explanation belongs in the text block */
+            { label: 'Allow-Origin', value: acao || 'not sent' },
             { label: 'Time', value: `${ms} ms` },
             { label: 'Credentials', value: res.headers.get('access-control-allow-credentials') || '—' },
           ],
@@ -849,9 +854,9 @@ export const INTERNET_IMPLS = {
     async compute(v) {
       const esc = (s) => String(s || '').replace(/([\\;,:"])/g, '\\$1');
       const payload = `WIFI:T:${v.enc};S:${esc(v.ssid)};${v.enc !== 'nopass' ? `P:${esc(v.pass)};` : ''}${v.hidden ? 'H:true;' : ''};`;
-      await loadScript('https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js');
+      const QRCode = await loadQr();
       const dataUrl = await new Promise((resolve, reject) => {
-        window.QRCode.toDataURL(payload, { width: 320, margin: 2, color: { dark: '#161514', light: '#FAF7F2' } }, (err, url) => err ? reject(err) : resolve(url));
+        QRCode.toDataURL(payload, { width: 320, margin: 2, color: { dark: '#161514', light: '#FAF7F2' } }, (err, url) => err ? reject(err) : resolve(url));
       });
       return {
         title: 'Wi-Fi QR code',

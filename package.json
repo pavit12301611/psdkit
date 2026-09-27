@@ -3,15 +3,30 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "PSDKIT Pro — 150+ free online tools for internet, daily life and coding. No login, no ads — with guides and an AI assistant.",
+  "description": "PSDKIT Pro \u2014 201 free online tools for internet, daily life and coding. No login, no ads \u2014 with guides and an AI assistant.",
   "scripts": {
     "dev": "vite",
     "build": "node scripts/gen-sitemap.mjs && vite build",
     "preview": "vite preview",
-    "test": "node scripts/smoke.mjs"
+    "test": "npm run test:smoke && npm run audit && npm run audit:tools",
+    "test:smoke": "node scripts/smoke.mjs",
+    "audit": "node scripts/audit-overflow.mjs",
+    "audit:tools": "node scripts/audit-tools.mjs",
+    "audit:browser": "node scripts/audit-browser.mjs"
   },
   "devDependencies": {
+    "@sparticuz/chromium": "^153.0.0",
     "jsdom": "^25.0.1",
+    "puppeteer-core": "^25.12.0",
     "vite": "^5.4.10"
+  },
+  "dependencies": {
+    "js-beautify": "^1.15.1",
+    "jsqr": "^1.4.0",
+    "marked": "^12.0.2",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^3.11.174",
+    "qrcode": "^1.5.4",
+    "turndown": "^7.2.0"
   }
 }
