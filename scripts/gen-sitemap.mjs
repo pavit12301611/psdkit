@@ -3,13 +3,18 @@ import { resolve } from 'node:path';
 import { TOOLS, CATEGORIES } from '../src/data/catalog.js';
 import { LANGUAGE_GUIDES } from '../src/data/guides.js';
 
-const SITE = 'https://psdkit-pro.vercel.app';
+/* The deployment this site actually answers on. It used to point at
+   psdkit-pro.vercel.app, which 404s (DEPLOYMENT_NOT_FOUND) and told every
+   crawler the whole toolkit was gone. Keep this in step with the Vercel
+   project and public/robots.txt. */
+const SITE = 'https://psdkit.vercel.app';
 const publicDir = resolve(process.cwd(), 'public');
 const today = new Date().toISOString().slice(0, 10);
 
 const routes = new Set([
   '#/',
   '#/tools',
+  '#/tools/community',
   '#/learn',
   '#/glossary',
   '#/community',

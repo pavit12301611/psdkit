@@ -42,6 +42,12 @@ function routeMeta(parts) {
       description: cat.blurb,
     };
   }
+  if (a === 'tools' && b === 'community') {
+    return {
+      title: 'Community Tools — PSDKIT Pro',
+      description: 'Tools published by PSDKIT Pro community members, each shown with the name of the person who made it.',
+    };
+  }
   if (a === 'tools') return {
     title: 'All Tools — PSDKIT Pro',
     description: `Browse all ${TOOL_COUNT} PSDKIT Pro tools with smart search, favourites and recent history.`,

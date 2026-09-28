@@ -3,33 +3,138 @@
    Loads only when env config is present, so the site still works
    with no backend. Auth uses popup first and falls back to redirect
    on mobile or popup-blocked browsers.
+
+   Every read returns `{ …, error }` instead of quietly degrading to
+   an empty value. Swallowing the error is what made "published but
+   invisible" impossible to diagnose: a missing Firestore index and a
+   healthy empty database both rendered as "no tools of yours".
    ============================================================ */
 import { loadScript } from './ui.js';
 
 const BASE = 'https://www.gstatic.com/firebasejs/10.14.1';
 const ENV = (typeof import.meta !== 'undefined' && import.meta.env) ? import.meta.env : {};
+/* Runtime escape hatch. The build bakes VITE_FIREBASE_* in at compile time, so
+   a deployment that forgot them is unfixable without a rebuild — which is how a
+   "Community features are live" badge can end up lying. Setting
+   `window.PSDKIT_FIREBASE_CONFIG` (plain public firebaseConfig fields) before
+   the bundle loads turns the features on with no redeploy. */
+const RUNTIME = (typeof globalThis !== 'undefined' && globalThis.PSDKIT_FIREBASE_CONFIG) || {};
 const RETURN_KEY = 'psdkit_auth_return';
 const COLLECTION = 'communityTools';
 const RATINGS = 'communityToolRatings';
 const REPORTS = 'communityToolReports';
 const ADMINS = 'admins';
+const NOT_CONFIGURED = 'Firebase is not configured';
 
 export const firebaseConfig = {
-  apiKey: ENV.VITE_FIREBASE_API_KEY,
-  authDomain: ENV.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: ENV.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: ENV.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: ENV.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: ENV.VITE_FIREBASE_APP_ID,
+  apiKey: ENV.VITE_FIREBASE_API_KEY || RUNTIME.apiKey || '',
+  authDomain: ENV.VITE_FIREBASE_AUTH_DOMAIN || RUNTIME.authDomain || '',
+  projectId: ENV.VITE_FIREBASE_PROJECT_ID || RUNTIME.projectId || '',
+  storageBucket: ENV.VITE_FIREBASE_STORAGE_BUCKET || RUNTIME.storageBucket || '',
+  messagingSenderId: ENV.VITE_FIREBASE_MESSAGING_SENDER_ID || RUNTIME.messagingSenderId || '',
+  appId: ENV.VITE_FIREBASE_APP_ID || RUNTIME.appId || '',
 };
 
-export const firebaseReady = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId);
+/* An unset env var must not read as "configured", and neither must a
+   half-filled one that still carries the variable name as its value. */
+const PLACEHOLDER = /^\s*(\$\{.*\}|VITE_[A-Z_]+|YOUR[_-]|CHANGE[_-]|PASTE[_-])/i;
+function usable(value) {
+  return typeof value === 'string' && value.trim().length > 0 && !PLACEHOLDER.test(value);
+}
+
+export const firebaseConfigProblem = (() => {
+  const needed = ['apiKey', 'authDomain', 'projectId', 'appId'];
+  const missing = needed.filter((key) => !usable(firebaseConfig[key]));
+  if (!missing.length) return '';
+  const placeholders = needed.filter((key) => !usable(firebaseConfig[key]) && String(firebaseConfig[key] || '').trim());
+  if (placeholders.length) {
+    return `${NOT_CONFIGURED} — ${placeholders.join(', ')} still holds a placeholder value`;
+  }
+  return `${NOT_CONFIGURED} — missing ${missing.join(', ')}`;
+})();
+
+export const firebaseReady = !firebaseConfigProblem;
 
 let initPromise = null;
 let redirectHandled = false;
 let auth = null;
 let db = null;
 let lastUser = null;
+
+/* ---------- Failure reporting ----------
+   One channel for "something in Firestore went wrong" so no call site can
+   quietly turn an exception into an empty list again. */
+const STATUS_EVENT = 'psdkit:community-status';
+const statusListeners = new Set();
+let lastStatus = { ok: true, code: '', scope: '', message: '', hint: '', at: 0 };
+
+const FRIENDLY = [
+  [/missing or insufficient permissions|permission-denied/i,
+    'Firestore rules blocked this. Publish the repo’s firestore.rules in Firebase console → Firestore → Rules.'],
+  [/requires an index|no matching index|failed-precondition/i,
+    'A Firestore composite index is missing. Create it from the link in the console error, or run `firebase deploy --only firestore:indexes`.'],
+  [/invalid-api-key|configuration-not-found|invalid-credential|api-key-not-valid/i,
+    'The Firebase config was rejected. Re-check the VITE_FIREBASE_* values against the Firebase console.'],
+  [/unavailable|deadline-exceeded|network-request-failed|internal-error|transport/i,
+    'Firestore could not be reached. Check the network, then retry.'],
+  [/unauthenticated|auth\/operation-not-allowed|popup|redirect/i,
+    'Google sign-in did not complete. Check Authentication → Sign-in method and the authorised domains.'],
+];
+
+/** Turn a raw Firestore/Auth error into one short sentence a human can act on. */
+export function friendlyError(error) {
+  const text = String(error?.message || error || '');
+  const hit = FRIENDLY.find(([re]) => re.test(text));
+  return hit ? hit[1] : (text || 'Unknown error');
+}
+
+/** Classify an error for the status channel (see FRIENDLY for the wording). */
+function classify(error) {
+  const text = String(error?.message || error || '');
+  if (/requires an index|no matching index/i.test(text)) return 'missing-index';
+  if (/missing or insufficient permissions|permission-denied/i.test(text)) return 'permission-denied';
+  if (/invalid-api-key|configuration-not-found|api-key-not-valid/i.test(text)) return 'bad-config';
+  if (/auth\/|unauthenticated|operation-not-allowed/i.test(text)) return 'auth';
+  if (/unavailable|deadline|network|internal-error|transport/i.test(text)) return 'offline';
+  return 'unknown';
+}
+
+/**
+ * Log the real error once and broadcast it. `quiet` failures (ratings, admin
+ * lookups) are logged but do not flip the page into its degraded state.
+ */
+function reportFirestore(scope, error, { quiet = false } = {}) {
+  if (!error) return null;
+  const code = classify(error);
+  const message = friendlyError(error);
+  if (code === 'missing-index' || /index/i.test(String(error?.message || ''))) {
+    console.error(`[psdkit] Firestore "${scope}" needs a composite index — create it here:`, error);
+  } else {
+    console.error(`[psdkit] Firestore "${scope}" failed:`, error);
+  }
+  if (!quiet) {
+    lastStatus = { ok: false, code, scope, message, hint: String(error?.message || ''), at: Date.now() };
+    statusListeners.forEach((fn) => { try { fn(lastStatus); } catch { /* listener bug must not cascade */ } });
+    try { window.dispatchEvent(new CustomEvent(STATUS_EVENT, { detail: lastStatus })); } catch { /* no DOM */ }
+  }
+  return lastStatus;
+}
+
+export function onCommunityStatus(cb) {
+  statusListeners.add(cb);
+  return () => statusListeners.delete(cb);
+}
+
+export function communityStatus() {
+  return lastStatus;
+}
+
+function clearStatus(scope) {
+  if (lastStatus.ok || lastStatus.scope !== scope) return;
+  lastStatus = { ok: true, code: '', scope: '', message: '', hint: '', at: Date.now() };
+  statusListeners.forEach((fn) => { try { fn(lastStatus); } catch { /* listener bug */ } });
+  try { window.dispatchEvent(new CustomEvent(STATUS_EVENT, { detail: lastStatus })); } catch { /* no DOM */ }
+}
 
 function setReturnTo(hash) {
   try { sessionStorage.setItem(RETURN_KEY, hash || location.hash || '#/'); } catch { /* ignore */ }
@@ -47,13 +152,21 @@ function isMobileLike() {
   return /Android|iPhone|iPad|Mobile|Opera Mini/i.test(navigator.userAgent || '') || matchMedia?.('(pointer: coarse)')?.matches;
 }
 
+/* Tests (and any page that already loaded the SDK itself) can predefine
+   `firebase`; skip the three network script tags when it is there. */
+function sdkPresent() {
+  return typeof globalThis !== 'undefined' && Boolean(globalThis.firebase?.apps);
+}
+
 async function init() {
   if (initPromise) return initPromise;
   initPromise = (async () => {
-    if (!firebaseReady) throw new Error('Firebase is not configured');
-    await loadScript(`${BASE}/firebase-app-compat.js`);
-    await loadScript(`${BASE}/firebase-auth-compat.js`);
-    await loadScript(`${BASE}/firebase-firestore-compat.js`);
+    if (!firebaseReady) throw new Error(NOT_CONFIGURED);
+    if (!sdkPresent()) {
+      await loadScript(`${BASE}/firebase-app-compat.js`);
+      await loadScript(`${BASE}/firebase-auth-compat.js`);
+      await loadScript(`${BASE}/firebase-firestore-compat.js`);
+    }
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     auth = firebase.auth();
     db = firebase.firestore();
@@ -65,12 +178,15 @@ async function init() {
           const target = takeReturnTo();
           if (target && target !== location.hash) location.hash = target;
         }
-      } catch {
-        /* ignore redirect issues */
+      } catch (error) {
+        reportFirestore('auth redirect', error);
       }
     }
     return { auth, db };
   })();
+  /* A failed init must not be cached forever — the user can fix the config
+     and retry without a full page reload. */
+  initPromise.catch(() => { initPromise = null; });
   return initPromise;
 }
 
@@ -100,6 +216,7 @@ export async function signInWithGoogle({ returnTo } = {}) {
       await auth.signInWithRedirect(provider);
       return null;
     }
+    reportFirestore('google sign-in', error);
     throw error;
   }
 }
@@ -120,7 +237,10 @@ export function onAuth(cb) {
       emitAuth(user);
       cb(user || null);
     });
-  }).catch(() => cb(null));
+  }).catch((error) => {
+    reportFirestore('auth state', error);
+    cb(null);
+  });
   return () => unsub();
 }
 
@@ -134,7 +254,9 @@ export async function isAdmin(uid = currentUser()?.uid) {
     await init();
     const snap = await db.collection(ADMINS).doc(uid).get();
     return snap.exists;
-  } catch {
+  } catch (error) {
+    /* Not being an admin is a normal answer; only log it. */
+    console.warn('[psdkit] admin lookup failed:', error);
     return false;
   }
 }
@@ -142,10 +264,11 @@ export async function isAdmin(uid = currentUser()?.uid) {
 /* ---------- Firestore helpers ---------- */
 function normalizeTool(doc, ratingsMap = {}, reportsMap = {}) {
   const data = doc.data ? doc.data() : doc;
-  const rate = ratingsMap[data.id || doc.id] || { count: 0, avg: 0, mine: 0 };
-  const report = reportsMap[data.id || doc.id] || { count: 0, mine: false };
+  const id = doc.id || data.id;
+  const rate = ratingsMap[id] || { count: 0, avg: 0, mine: 0 };
+  const report = reportsMap[id] || { count: 0, mine: false };
   return {
-    id: doc.id || data.id,
+    id,
     ...data,
     ratingCount: rate.count,
     ratingAvg: rate.avg,
@@ -185,57 +308,101 @@ async function fetchReportsMap(uid) {
   return map;
 }
 
+/* Ratings and reports are decoration on top of the tool list. If their read is
+   blocked the tools must still load — an empty star row beats an empty page. */
+async function enrichment(kind, fn) {
+  try {
+    return await fn();
+  } catch (error) {
+    reportFirestore(`${kind} enrichment`, error, { quiet: true });
+    return {};
+  }
+}
+
 /* ---------- Community tools ---------- */
 export async function submitCommunityTool({ name, description, category, code, authorName, authorUid, authorEmail, authorPhotoURL }) {
+  if (!firebaseReady) throw new Error(NOT_CONFIGURED);
   await init();
-  const doc = await db.collection(COLLECTION).add({
-    name,
-    description,
-    category,
-    code,
-    authorName,
-    authorUid,
-    authorEmail: authorEmail || '',
-    authorPhotoURL: authorPhotoURL || '',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    runs: 0,
-    featured: false,
-    hidden: false,
-  });
-  return doc.id;
+  try {
+    const doc = await db.collection(COLLECTION).add({
+      name,
+      description,
+      category,
+      code,
+      authorName,
+      authorUid,
+      authorEmail: authorEmail || '',
+      authorPhotoURL: authorPhotoURL || '',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      runs: 0,
+      featured: false,
+      hidden: false,
+    });
+    clearStatus('publish');
+    return doc.id;
+  } catch (error) {
+    /* Re-throw with the real cause attached — publish() shows it in a toast. */
+    reportFirestore('publish', error);
+    const wrapped = new Error(friendlyError(error));
+    wrapped.code = error?.code || '';
+    throw wrapped;
+  }
 }
 
 export async function updateCommunityTool(id, patch) {
-  if (!firebaseReady) throw new Error('Firebase is not configured');
+  if (!firebaseReady) throw new Error(NOT_CONFIGURED);
   await init();
-  await db.collection(COLLECTION).doc(id).update({ ...patch, updatedAt: Date.now() });
+  try {
+    await db.collection(COLLECTION).doc(id).update({ ...patch, updatedAt: Date.now() });
+    clearStatus('update');
+  } catch (error) {
+    reportFirestore('update', error);
+    const wrapped = new Error(friendlyError(error));
+    wrapped.code = error?.code || '';
+    throw wrapped;
+  }
 }
 
 export async function deleteCommunityTool(id) {
-  if (!firebaseReady) throw new Error('Firebase is not configured');
+  if (!firebaseReady) throw new Error(NOT_CONFIGURED);
   await init();
-  await db.collection(COLLECTION).doc(id).delete();
+  try {
+    await db.collection(COLLECTION).doc(id).delete();
+    clearStatus('delete');
+  } catch (error) {
+    reportFirestore('delete', error);
+    const wrapped = new Error(friendlyError(error));
+    wrapped.code = error?.code || '';
+    throw wrapped;
+  }
 }
 
+/** @returns {Promise<{tool: object|null, error: Error|null}>} */
 export async function getCommunityTool(id, uid = currentUser()?.uid) {
-  if (!firebaseReady || !id) return null;
+  if (!firebaseReady || !id) return { tool: null, error: null };
   try {
     await init();
     const [doc, ratingsMap, reportsMap] = await Promise.all([
       db.collection(COLLECTION).doc(id).get(),
-      fetchRatingsMap(uid),
-      fetchReportsMap(uid),
+      enrichment('ratings', () => fetchRatingsMap(uid)),
+      enrichment('reports', () => fetchReportsMap(uid)),
     ]);
-    if (!doc.exists) return null;
-    return normalizeTool(doc, ratingsMap, reportsMap);
-  } catch {
-    return null;
+    if (!doc.exists) return { tool: null, error: null };
+    clearStatus('tool detail');
+    return { tool: normalizeTool(doc, ratingsMap, reportsMap), error: null };
+  } catch (error) {
+    return { tool: null, error: reportFirestore('tool detail', error) || error };
   }
 }
 
+/**
+ * @returns {Promise<{tools: object[]|null, error: Error|null}>} `tools` is null
+ * only when the read failed; an empty array means the database really is empty
+ * and the UI must say so instead of pretending three sample tools are live.
+ */
 export async function listCommunityTools({ limit = 60, sort = 'latest', includeHidden = false, uid = currentUser()?.uid } = {}) {
-  if (!firebaseReady) return null;
+  if (!firebaseReady) return { tools: null, error: null };
   try {
     await init();
     let query = db.collection(COLLECTION);
@@ -243,8 +410,8 @@ export async function listCommunityTools({ limit = 60, sort = 'latest', includeH
     query = query.limit(limit);
     const [toolsSnap, ratingsMap, reportsMap] = await Promise.all([
       query.get(),
-      fetchRatingsMap(uid),
-      fetchReportsMap(uid),
+      enrichment('ratings', () => fetchRatingsMap(uid)),
+      enrichment('reports', () => fetchReportsMap(uid)),
     ]);
     const tools = toolsSnap.docs
       .map((doc) => normalizeTool(doc, ratingsMap, reportsMap))
@@ -253,79 +420,119 @@ export async function listCommunityTools({ limit = 60, sort = 'latest', includeH
         if (sort === 'trending') return (b.runs || 0) - (a.runs || 0);
         return (b.createdAt || 0) - (a.createdAt || 0);
       });
-    return tools;
-  } catch {
-    return null;
+    clearStatus('community list');
+    return { tools, error: null };
+  } catch (error) {
+    return { tools: null, error: reportFirestore('community list', error) || error };
   }
 }
 
+/**
+ * A user's own tools.
+ *
+ * `where('authorUid','==',uid) + orderBy('createdAt')` needs a composite index
+ * that nobody is told to create, and the query then fails with
+ * `failed-precondition` — which used to be caught and returned as `[]`, so an
+ * author who had published successfully still saw "you have not published any
+ * tools yet" on their profile. The equality filter alone uses Firestore's
+ * automatic single-field index, so the newest-first order is applied here.
+ *
+ * @returns {Promise<{tools: object[]|null, error: Error|null}>}
+ */
 export async function listToolsByAuthor(uid) {
-  if (!firebaseReady || !uid) return [];
+  if (!firebaseReady || !uid) return { tools: [], error: null };
   try {
     await init();
     const [toolsSnap, ratingsMap, reportsMap] = await Promise.all([
-      db.collection(COLLECTION).where('authorUid', '==', uid).orderBy('createdAt', 'desc').get(),
-      fetchRatingsMap(uid),
-      fetchReportsMap(uid),
+      db.collection(COLLECTION).where('authorUid', '==', uid).limit(200).get(),
+      enrichment('ratings', () => fetchRatingsMap(uid)),
+      enrichment('reports', () => fetchReportsMap(uid)),
     ]);
-    return toolsSnap.docs.map((doc) => normalizeTool(doc, ratingsMap, reportsMap));
-  } catch {
-    return [];
+    clearStatus('my tools');
+    const tools = toolsSnap.docs
+      .map((doc) => normalizeTool(doc, ratingsMap, reportsMap))
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return { tools, error: null };
+  } catch (error) {
+    return { tools: null, error: reportFirestore('my tools', error) || error };
   }
 }
 
+/** @returns {Promise<boolean>} false when the counter could not be written. */
 export async function incrementRuns(id) {
-  if (!firebaseReady) return;
+  if (!firebaseReady || !id) return false;
   try {
     await init();
     await db.collection(COLLECTION).doc(id).update({
       runs: firebase.firestore.FieldValue.increment(1),
       updatedAt: Date.now(),
     });
-  } catch { /* non-critical */ }
+    return true;
+  } catch (error) {
+    /* Non-critical: the preview still opened, and the next visit tries again. */
+    console.warn('[psdkit] run counter not updated:', error);
+    return false;
+  }
 }
 
 export async function rateCommunityTool(toolId, value, user = currentUser()) {
-  if (!firebaseReady) throw new Error('Firebase is not configured');
+  if (!firebaseReady) throw new Error(NOT_CONFIGURED);
   if (!user?.uid) throw new Error('Sign in required');
   await init();
   const clean = Math.max(1, Math.min(5, Number(value) || 0));
-  if (!clean) throw new Error('Choose a rating');
-  await db.collection(RATINGS).doc(`${toolId}_${user.uid}`).set({
-    toolId,
-    uid: user.uid,
-    value: clean,
-    authorName: user.displayName || user.email || 'Member',
-    updatedAt: Date.now(),
-  }, { merge: true });
+  try {
+    await db.collection(RATINGS).doc(`${toolId}_${user.uid}`).set({
+      toolId,
+      uid: user.uid,
+      value: clean,
+      authorName: user.displayName || user.email || 'Member',
+      updatedAt: Date.now(),
+    }, { merge: true });
+  } catch (error) {
+    reportFirestore('rating', error);
+    throw new Error(friendlyError(error));
+  }
 }
 
 export async function reportCommunityTool(toolId, reason, user = currentUser()) {
-  if (!firebaseReady) throw new Error('Firebase is not configured');
+  if (!firebaseReady) throw new Error(NOT_CONFIGURED);
   if (!user?.uid) throw new Error('Sign in required');
   await init();
-  await db.collection(REPORTS).doc(`${toolId}_${user.uid}`).set({
-    toolId,
-    uid: user.uid,
-    reason,
-    createdAt: Date.now(),
-  }, { merge: true });
+  try {
+    await db.collection(REPORTS).doc(`${toolId}_${user.uid}`).set({
+      toolId,
+      uid: user.uid,
+      reason,
+      createdAt: Date.now(),
+    }, { merge: true });
+  } catch (error) {
+    reportFirestore('report', error);
+    throw new Error(friendlyError(error));
+  }
 }
 
 export async function listReportedTools() {
-  if (!firebaseReady) return [];
-  await init();
-  const tools = await listCommunityTools({ limit: 200, includeHidden: true });
-  const reportsMap = await fetchReportsMap(currentUser()?.uid);
-  return (tools || [])
-    .filter((tool) => (reportsMap[tool.id]?.count || 0) > 0)
-    .map((tool) => ({ ...tool, reports: reportsMap[tool.id]?.items || [] }));
+  if (!firebaseReady) return { tools: [], error: null };
+  const { tools, error } = await listCommunityTools({ limit: 200, includeHidden: true });
+  if (!tools) return { tools: [], error };
+  const reportsMap = await enrichment('reports', () => fetchReportsMap(currentUser()?.uid));
+  return {
+    tools: tools
+      .filter((tool) => (reportsMap[tool.id]?.count || 0) > 0)
+      .map((tool) => ({ ...tool, reports: reportsMap[tool.id]?.items || [] })),
+    error: null,
+  };
 }
 
 export async function featureCommunityTool(id, featured = true) {
-  if (!firebaseReady) throw new Error('Firebase is not configured');
+  if (!firebaseReady) throw new Error(NOT_CONFIGURED);
   await init();
-  await db.collection(COLLECTION).doc(id).update({ featured: !!featured, updatedAt: Date.now() });
+  try {
+    await db.collection(COLLECTION).doc(id).update({ featured: !!featured, updatedAt: Date.now() });
+  } catch (error) {
+    reportFirestore('feature', error);
+    throw new Error(friendlyError(error));
+  }
 }
 
 export async function adminDeleteCommunityTool(id) {

@@ -14,12 +14,10 @@ service cloud.firestore {
       return signedIn() && resource.data.authorUid == request.auth.uid;
     }
 
-    match /communityTools/{toolId} {
-      allow read: if true;
-
-      allow create: if signedIn()
-        && request.resource.data.authorUid == request.auth.uid
-        && request.resource.data.name is string
+    /* Shared by create and update so an author cannot sidestep the size
+       limits by editing a document that was created under them. */
+    function validTool() {
+      return request.resource.data.name is string
         && request.resource.data.name.size() > 2
         && request.resource.data.name.size() < 80
         && request.resource.data.description is string
@@ -28,8 +26,24 @@ service cloud.firestore {
         && request.resource.data.code is string
         && request.resource.data.code.size() > 10
         && request.resource.data.code.size() < 100000;
+    }
 
-      allow update: if isAuthor() || isAdmin()
+    match /communityTools/{toolId} {
+      allow read: if true;
+
+      allow create: if signedIn()
+        && request.resource.data.authorUid == request.auth.uid
+        && validTool();
+
+      /* An author may edit their own tool, but the same field limits apply.
+         `hidden` and `featured` stay admin-only: without that, an author could
+         un-hide a tool auto-hidden by moderation. */
+      allow update: if (
+        isAuthor() || isAdmin()
+      ) && validTool()
+        && (!isAuthor() || isAdmin() || (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['hidden', 'featured'])
+        ))
         || (
           request.resource.data.diff(resource.data).changedKeys().hasOnly(['runs', 'updatedAt'])
           && request.resource.data.runs == resource.data.runs + 1

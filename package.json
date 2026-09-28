@@ -8,11 +8,12 @@
     "dev": "vite",
     "build": "node scripts/gen-sitemap.mjs && vite build",
     "preview": "vite preview",
-    "test": "npm run test:smoke && npm run audit && npm run audit:tools",
+    "test": "npm run test:smoke && npm run test:community && npm run audit && npm run audit:tools",
     "test:smoke": "node scripts/smoke.mjs",
     "audit": "node scripts/audit-overflow.mjs",
     "audit:tools": "node scripts/audit-tools.mjs",
-    "audit:browser": "node scripts/audit-browser.mjs"
+    "audit:browser": "node scripts/audit-browser.mjs",
+    "test:community": "node scripts/community-flow.mjs"
   },
   "devDependencies": {
     "@sparticuz/chromium": "^153.0.0",

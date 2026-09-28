@@ -1,0 +1,14 @@
+{
+  "comment": "The client no longer needs a composite index for \"my tools\" — listToolsByAuthor() filters by authorUid and sorts in memory so it works on a fresh database. This index is kept for the admin/reporting queries and for any future server-side query, and it is what `firebase deploy --only firestore:indexes` publishes.",
+  "indexes": [
+    {
+      "collectionGroup": "communityTools",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "authorUid", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

@@ -24,10 +24,19 @@ export function el(tag, attrs, ...children) {
       else if (k === 'text') node.textContent = v;
       /* `value` and `checked` are DOM *properties*, not attributes: setting the
          attribute on a <textarea> does nothing at all, and on an <input> it only
-         seeds the default. Assign the property so content actually appears. */
+         seeds the default. Assign the property so content actually appear. */
       else if (k === 'value' && 'value' in node) node.value = v;
       else if (k === 'checked' && 'checked' in node) node.checked = !!v;
       else if (k === 'selected' && 'selected' in node) node.selected = !!v;
+      /* `class` must merge with whatever the selector contributed.
+         el('button.chip', { class: 'active' }) has to keep `chip`. Assigning the
+         class *attribute* replaced the list instead, so the category filters,
+         the favourite stars and the rating stars all rendered unstyled — and
+         `class: ''` on a deactivated chip wiped it just as thoroughly. */
+      else if (k === 'class' && typeof v === 'string') {
+        const extra = v.split(/\s+/).filter(Boolean);
+        if (extra.length) node.classList.add(...extra);
+      }
       else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
       else if (k === 'dataset') Object.assign(node.dataset, v);
       else if (k === 'style' && typeof v === 'object') Object.assign(node.style, v);

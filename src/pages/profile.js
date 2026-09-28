@@ -32,16 +32,33 @@ export function renderProfilePage(root, user) {
   const stats = el('div.stat-grid');
   const favList = getFavouriteTools(TOOL_MAP);
   const yourTools = el('div.grid.grid-2');
+  const toolsProblem = el('div');
 
   const renderLoaded = async () => {
-    const authored = firebaseReady ? await listToolsByAuthor(user.uid) : [];
+    toolsProblem.innerHTML = '';
+    /* `tools: null` means the read failed. Rendering that as "you have not
+       published anything" is what told a successful author their publish had
+       silently vanished. */
+    const { tools, error } = firebaseReady
+      ? await listToolsByAuthor(user.uid)
+      : { tools: [], error: null };
+    const authored = tools || [];
     const totalRuns = authored.reduce((sum, tool) => sum + Number(tool.runs || 0), 0);
     stats.innerHTML = '';
     stats.append(
-      el('div.stat', el('div.k', { text: t('toolsPublished') }), el('div.v', { text: String(authored.length) })),
-      el('div.stat', el('div.k', { text: t('totalRuns') }), el('div.v', { text: fmt.num(totalRuns, 0) })),
+      el('div.stat', el('div.k', { text: t('toolsPublished') }), el('div.v', { text: error ? '—' : String(authored.length) })),
+      el('div.stat', el('div.k', { text: t('totalRuns') }), el('div.v', { text: error ? '—' : fmt.num(totalRuns, 0) })),
       el('div.stat', el('div.k', { text: 'Favourites' }), el('div.v', { text: String(favList.length) })),
     );
+    if (error) {
+      toolsProblem.append(el('div.note', {},
+        el('div', { html: icon('info', 17) }),
+        el('span', {},
+          el('strong', { text: 'Your tools could not be loaded. ' }),
+          el('span', { text: `${error.message} Nothing was lost — retry once Firestore answers.` }),
+        ),
+      ));
+    }
     yourTools.innerHTML = '';
     renderAuthorTools(yourTools, authored, renderLoaded);
   };
@@ -65,6 +82,7 @@ export function renderProfilePage(root, user) {
       el('div.eyebrow', { text: t('yourPublishedTools') }),
       el('h2.display.h-section', { html: 'Your community <em>tools</em>' }),
     ),
+    toolsProblem,
     yourTools,
   );
   renderLoaded();
