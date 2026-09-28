@@ -30,7 +30,7 @@ export function setTheme(theme) {
   try { localStorage.setItem(THEME_KEY, next); } catch { /* ignore */ }
   document.documentElement.dataset.theme = next;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', next === 'dim' ? '#0D1420' : '#F7F7F3');
+  if (meta) meta.setAttribute('content', next === 'dim' ? '#0E1B29' : '#EDF1EF');
   document.dispatchEvent(new CustomEvent('psdkit:theme', { detail: next }));
   return next;
 }
