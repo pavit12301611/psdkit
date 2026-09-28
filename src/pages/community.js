@@ -5,7 +5,7 @@ import {
   firebaseReady, firebaseConfigProblem, signInWithGoogle, signOutUser,
   submitCommunityTool, listCommunityTools, incrementRuns,
   updateCommunityTool, deleteCommunityTool, rateCommunityTool, reportCommunityTool,
-  currentUser, isAdmin, getCommunityTool, featureCommunityTool, adminDeleteCommunityTool, listReportedTools,
+  currentUser, isAdmin, getCommunityTool,
   onCommunityStatus,
 } from '../firebase.js';
 import { t } from '../data/i18n.js';
@@ -608,65 +608,8 @@ export function renderAuthorTools(host, tools, onRefresh) {
 }
 
 export async function renderAdminPanel(host) {
-  host.innerHTML = '';
-  const me = currentSessionUser();
-  const admin = await isAdmin(me?.uid);
-  if (!me || !admin) {
-    host.append(el('div.empty-state', { html: `${icon('shield', 24)}<div style="margin-top:10px;font-weight:800">Admin access only</div><div style="margin-top:8px">Ask the project owner to add your UID in Firestore.</div>` }));
-    return;
-  }
-  const { tools: reported } = await listReportedTools();
-  const { tools: all, error } = await listCommunityTools({ limit: 200, includeHidden: true });
-  if (error) {
-    host.append(dataProblemNote(error));
-  }
-  /* Feature/delete used to be fire-and-forget: a denied write re-rendered the
-     same unchanged panel and the admin never learned why. */
-  const moderate = async (fn, done) => {
-    try {
-      await fn();
-      toast(done, 'check');
-    } catch (error) {
-      toast(error.message || 'Moderation action failed', 'x');
-    }
-    renderAdminPanel(host);
-  };
-
-  host.append(
-    el('div.section-head',
-      el('div.eyebrow', { text: 'moderation' }),
-      el('h1.display.h-section', { html: 'Admin <em>moderation</em>' }),
-      el('p.lede', { text: 'Review reports, feature strong tools and remove anything unsafe or broken.' }),
-    ),
-    el('div.grid.grid-2',
-      el('div.tool-panel',
-        el('div.h-title', { text: 'Reported tools' }),
-        ...(reported.length
-          ? reported.map((tool) => el('div.card',
-            el('div.row-between',
-              el('div', el('div', { style: { fontWeight: 800 }, text: tool.name }), el('div.field-hint', { text: `${tool.reportCount || 0} report(s)` })),
-              el('div.row',
-                el('button.btn.btn-soft.btn-sm', { text: tool.featured ? 'Unfeature' : 'Feature', onclick: () => moderate(() => featureCommunityTool(tool.id, !tool.featured), tool.featured ? 'Tool unfeatured' : 'Tool featured') }),
-                el('button.btn.btn-soft.btn-sm', { text: 'Delete', onclick: () => { if (!confirm(`Delete ${tool.name}?`)) return; moderate(() => adminDeleteCommunityTool(tool.id), 'Tool deleted'); } }),
-              ),
-            ),
-            el('div.mt-2', { html: (tool.reports || []).map((report) => `<div class="field-hint">• ${report.reason}</div>`).join('') || '<div class="field-hint">No reasons</div>' }),
-          ))
-
-          : [el('div.note', { html: `${icon('check', 16)}<span>No reports waiting right now.</span>` })]),
-      ),
-      el('div.tool-panel',
-        el('div.h-title', { text: 'All community tools' }),
-        ...(all || []).map((tool) => el('div.card',
-          el('div.row-between',
-            el('div', el('div', { style: { fontWeight: 800 }, text: tool.name }), el('div.field-hint', { text: `${tool.authorName || 'Anonymous'} · ${tool.runs || 0} runs` })),
-            el('div.row',
-              el('button.btn.btn-soft.btn-sm', { text: tool.featured ? 'Unfeature' : 'Feature', onclick: () => moderate(() => featureCommunityTool(tool.id, !tool.featured), tool.featured ? 'Tool unfeatured' : 'Tool featured') }),
-              el('button.btn.btn-soft.btn-sm', { text: 'Delete', onclick: () => { if (!confirm(`Delete ${tool.name}?`)) return; moderate(() => adminDeleteCommunityTool(tool.id), 'Tool deleted'); } }),
-            ),
-          ),
-        )),
-      ),
-    ),
-  );
+  /* The control center moved to its own module (stats, report queue, tool
+     manager, authors, log). This wrapper keeps the old entry point alive. */
+  const { renderAdminDashboard } = await import('./admin.js');
+  return renderAdminDashboard(host);
 }

@@ -182,6 +182,7 @@ const fb = await import('../src/firebase.js');
 const community = await import('../src/pages/community.js');
 const profile = await import('../src/pages/profile.js');
 const toolsPage = await import('../src/pages/tools.js');
+const adminPage = await import('../src/pages/admin.js');
 
 /* ── the unconfigured build, in isolation ────────────────────────────── */
 
@@ -582,6 +583,219 @@ await test('a broken ratings read no longer blanks the tool list', async () => {
   if (tools[0].ratingCount !== 0) throw new Error('expected the rating enrichment to degrade to zero');
   if (!logged.some((line) => /ratings enrichment/.test(line))) throw new Error('the degradation was not logged');
 });
+
+/* ── admin control center ──────────────────────────────────────── */
+
+console.log('\n— Admin control center —');
+
+const ADMIN = {
+  uid: 'admin-ada',
+  displayName: 'Ada Admin',
+  email: 'ada@example.com',
+  metadata: { creationTime: new Date().toISOString() },
+};
+
+function grantAdmin(uid = ADMIN.uid) {
+  store.admins.set(uid, { grantedAt: Date.now() });
+}
+
+/* The destructive flows confirm first; the double drives them through. */
+const realConfirm = window.confirm;
+window.confirm = () => true;
+
+await test('a signed-out visitor gets the sign-in gate', async () => {
+  reset();
+  state.user = null;
+  const root = host();
+  await adminPage.renderAdminDashboard(root);
+  if (!/Admin access only/.test(root.textContent)) throw new Error('the sign-in gate is missing');
+  if (!/Sign in with Google/.test(root.textContent)) throw new Error('no sign-in action offered');
+  root.remove();
+});
+
+await test('a non-admin is refused and shown the uid to grant', async () => {
+  reset();
+  state.user = USER;
+  const root = host();
+  await adminPage.renderAdminDashboard(root);
+  if (!/not an admin/i.test(root.textContent)) throw new Error('a non-admin walked straight in');
+  if (!root.textContent.includes(USER.uid)) throw new Error('the uid to grant is not shown');
+  if (!root.textContent.includes(`admins/${USER.uid}`)) throw new Error('the grant path is not spelled out');
+  root.remove();
+});
+
+await test('an admin gets the dashboard with stats and every tab', async () => {
+  reset();
+  state.user = ADMIN;
+  grantAdmin();
+  const id = await publishTool();
+  store.communityTools.get(id).runs = 42;
+  const root = host();
+  await adminPage.renderAdminDashboard(root);
+  const text = root.textContent;
+  if (!/Control Center/.test(text)) throw new Error('the hero is missing');
+  if (!/Total tools/.test(text) || !/Total runs/.test(text)) throw new Error('the stat cards are missing');
+  if (!text.includes(PAYLOAD.name)) throw new Error('the published tool is not on the dashboard');
+  if (root.querySelectorAll('.adm-nav-btn').length !== 5) throw new Error('expected five tabs');
+  if (!/42/.test(text)) throw new Error('the run counter never reached the overview');
+  root.remove();
+});
+
+await test('feature and hide from the manager land in Firestore', async () => {
+  reset();
+  state.user = ADMIN;
+  grantAdmin();
+  const id = await publishTool();
+  const root = host();
+  await adminPage.renderAdminDashboard(root);
+  [...root.querySelectorAll('.adm-nav-btn')].find((b) => /Tools/.test(b.textContent)).click();
+  await settle(30);
+  const featureBtn = root.querySelector('button[title="Feature"]');
+  if (!featureBtn) throw new Error('no feature action in the manager');
+  featureBtn.click();
+  await settle(90);
+  if (store.communityTools.get(id).featured !== true) throw new Error('the feature flag did not land');
+  const hideBtn = root.querySelector('button[title="Hide"]');
+  if (!hideBtn) throw new Error('no hide action in the manager');
+  hideBtn.click();
+  await settle(90);
+  if (store.communityTools.get(id).hidden !== true) throw new Error('the hide flag did not land');
+  root.remove();
+});
+
+await test('the search box narrows the manager', async () => {
+  reset();
+  state.user = ADMIN;
+  grantAdmin();
+  await publishTool();
+  await publishTool({ name: 'Totally Different Name' });
+  const root = host();
+  await adminPage.renderAdminDashboard(root);
+  [...root.querySelectorAll('.adm-nav-btn')].find((b) => /Tools/.test(b.textContent)).click();
+  await settle(30);
+  const input = root.querySelector('.adm-toolbar input[type="search"]');
+  if (!input) throw new Error('the manager has no search box');
+  input.value = 'Totally Different';
+  input.dispatchEvent(new window.Event('input', { bubbles: true }));
+  await settle(260);
+  const names = [...root.querySelectorAll('.adm-cell-title .c-name')].map((n) => n.textContent);
+  if (names.length !== 1 || names[0] !== 'Totally Different Name') {
+    throw new Error(`search returned ${JSON.stringify(names)}`);
+  }
+  root.remove();
+});
+
+await test('reports show their reasons and can be dismissed', async () => {
+  reset();
+  state.user = ADMIN;
+  grantAdmin();
+  const id = await publishTool();
+  await fb.reportCommunityTool(id, 'Broken', { uid: 'reader-one', displayName: 'Reader' });
+  await fb.reportCommunityTool(id, 'Unsafe code', { uid: 'reader-two', displayName: 'Reader' });
+  const root = host();
+  await adminPage.renderAdminDashboard(root);
+  [...root.querySelectorAll('.adm-nav-btn')].find((b) => /Reports/.test(b.textContent)).click();
+  await settle(30);
+  if (!/Broken/.test(root.textContent) || !/Unsafe code/.test(root.textContent)) {
+    throw new Error('the report reasons are not listed');
+  }
+  const dismissBtn = [...root.querySelectorAll('button')].find((b) => /Dismiss reports/.test(b.textContent));
+  if (!dismissBtn) throw new Error('no dismiss action in the queue');
+  dismissBtn.click();
+  await settle(120);
+  const left = [...store.communityToolReports.keys()].filter((k) => k.startsWith(id));
+  if (left.length) throw new Error('the reports were not dismissed');
+  if (store.communityTools.get(id).hidden) throw new Error('dismissing reports should lift the auto-hide');
+  if (!/Queue clear/.test(root.textContent)) throw new Error('the empty queue state is missing');
+  root.remove();
+});
+
+await test('the edit modal saves metadata and code', async () => {
+  reset();
+  state.user = ADMIN;
+  grantAdmin();
+  const id = await publishTool();
+  const root = host();
+  await adminPage.renderAdminDashboard(root);
+  [...root.querySelectorAll('.adm-nav-btn')].find((b) => /Tools/.test(b.textContent)).click();
+  await settle(30);
+  root.querySelector('button[title="Edit"]').click();
+  await settle(30);
+  const modal = [...window.document.querySelectorAll('.modal-backdrop')].pop();
+  if (!modal) throw new Error('the edit modal did not open');
+  const nameIn = modal.querySelector('input.input');
+  nameIn.value = 'Renamed by admin';
+  const runsIn = modal.querySelector('input[type="number"]');
+  runsIn.value = '7';
+  const saveBtn = [...modal.querySelectorAll('button')].find((b) => /Save changes/.test(b.textContent));
+  if (!saveBtn) throw new Error('no save button');
+  saveBtn.click();
+  await settle(120);
+  const doc = store.communityTools.get(id);
+  if (doc.name !== 'Renamed by admin') throw new Error('the rename did not land');
+  if (doc.runs !== 7) throw new Error('the run counter edit did not land');
+  root.remove();
+});
+
+await test('bulk delete removes every selected tool', async () => {
+  reset();
+  state.user = ADMIN;
+  grantAdmin();
+  await publishTool();
+  await publishTool({ name: 'Second Bulk Target' });
+  const root = host();
+  await adminPage.renderAdminDashboard(root);
+  [...root.querySelectorAll('.adm-nav-btn')].find((b) => /Tools/.test(b.textContent)).click();
+  await settle(30);
+  const boxes = [...root.querySelectorAll('input[data-row-check]')];
+  if (boxes.length !== 2) throw new Error(`expected two rows, got ${boxes.length}`);
+  boxes.forEach((cb) => {
+    cb.checked = true;
+    cb.dispatchEvent(new window.Event('change', { bubbles: true }));
+  });
+  await settle(30);
+  const bulk = root.querySelector('.adm-bulk');
+  if (!bulk || bulk.style.display === 'none') throw new Error('the bulk bar never appeared');
+  const deleteBtn = [...bulk.querySelectorAll('button')].find((b) => /Delete/.test(b.textContent));
+  deleteBtn.click();
+  await settle(150);
+  if (store.communityTools.size) throw new Error('bulk delete left documents behind');
+  root.remove();
+});
+
+await test('the activity log records moderation steps', async () => {
+  const entries = JSON.parse(window.localStorage.getItem('psdkit_admin_log') || '[]');
+  if (!entries.length) throw new Error('nothing was logged');
+  const root = host();
+  state.user = ADMIN;
+  grantAdmin();
+  await adminPage.renderAdminDashboard(root);
+  [...root.querySelectorAll('.adm-nav-btn')].find((b) => /Activity/.test(b.textContent)).click();
+  await settle(30);
+  if (!root.querySelector('.adm-log-row')) throw new Error('the log tab renders no entries');
+  root.remove();
+});
+
+await test('the panel survives a denied read without throwing', async () => {
+  reset();
+  state.user = ADMIN;
+  grantAdmin();
+  await publishTool();
+  /* Only the tools collection is denied — the admin lookup still succeeds,
+     so the frame must build and carry the failure honestly. */
+  state.failCollections = new Set(['communityTools']);
+  const root = host();
+  await adminPage.renderAdminDashboard(root);
+  if (!/Firestore problem/i.test(root.textContent)) {
+    throw new Error(`the failure never reached the screen: ${root.textContent.slice(0, 160)}`);
+  }
+  const vals = [...root.querySelectorAll('.adm-stat .s-val')].map((n) => n.textContent);
+  if (vals.some((v) => v !== '—')) throw new Error(`stats were fabricated from a failed read: ${JSON.stringify(vals)}`);
+  root.remove();
+  state.failCollections = new Set();
+});
+
+window.confirm = realConfirm;
 
 /* ── unconfigured build still degrades safely ────────────────────────── */
 

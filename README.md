@@ -35,7 +35,10 @@ Counts are derived from `src/data/catalog.js` at runtime (`TOOL_COUNT`), and a t
   - trending sort by runs
   - auto-hide after 3+ reports
   - homepage live community picks with built-in fallback samples
-  - admin moderation page at `#/admin`
+  - admin control center at `#/admin` — dashboard stats, a report queue with
+    dismiss, a searchable/sortable tool manager with bulk feature · hide ·
+    delete, inline editing (metadata, flags, runs, code + live preview),
+    an author directory, a moderation log and JSON export
 - **AI assistant**
   - local knowledge fallback always works even with no API keys
   - optional OpenAI / Gemini upgrade through `/api/ai`
