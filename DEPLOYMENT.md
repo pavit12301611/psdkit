@@ -77,10 +77,28 @@ npx vercel --prod
 - Paste the contents of [`firestore.rules`](./firestore.rules)
 - Publish
 
+> **Rules that live in the repo are not rules that are live.** Until you publish
+> them, a fresh database denies every write, and "I published it and nothing
+> happened" is the symptom. Check the Rules tab after any project change.
+
 ### D. Authorized domains
 Add your deployed domain(s):
 - `your-project.vercel.app`
 - any custom domain you connect later
+
+### E. Composite indexes (optional)
+The client does **not** need one: "my tools" filters on `authorUid` and sorts in
+memory, so a brand-new database works as soon as the rules are published. If you
+want the index anyway — for admin or future server-side queries — publish
+[`firestore.indexes.json`](./firestore.indexes.json) with:
+
+```bash
+firebase deploy --only firestore:indexes
+```
+
+If a query ever does need one, Firestore returns a `failed-precondition` error
+containing a console link; the app logs that error verbatim under
+`[psdkit] Firestore …` and shows a banner instead of silently falling back.
 
 ---
 
@@ -133,8 +151,17 @@ After you add the keys and click **Redeploy**, verify in this order:
 ### C. Community / Firestore
 1. Go to `#/community/add`
 2. Publish a small sample tool
-3. Confirm it appears on `#/community`
+3. Confirm it appears on `#/community` **and** in `#/profile` → *Your community tools*
 4. Rate it, report it from another account if needed, and confirm the profile/admin flows work
+
+If the tool does not show up, the page now tells you why instead of showing
+samples — a banner names the cause (rules / index / config) and the full error is
+in the browser console under `[psdkit] Firestore …`. The troubleshooting table in
+[README.md](./README.md#community-tools-troubleshooting) maps each banner to its fix.
+
+Remember that community tools live in three places only: `#/community`, the home
+page's community strip, and the author's profile. The `#/tools` catalogue is the
+fixed built-in set of tools and never lists community submissions.
 
 ### D. PWA / SEO
 - Check `manifest.webmanifest` loads

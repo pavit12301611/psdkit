@@ -143,19 +143,57 @@ Copy `.env.example` to `.env` for local testing if needed. Keep real secrets out
 - `VITE_FIREBASE_MESSAGING_SENDER_ID`
 - `VITE_FIREBASE_APP_ID`
 
+These are baked into the bundle at build time. If a deployment ships without them,
+sign-in, publishing, ratings and moderation are all disabled — the site says so on
+`#/signin` and `#/community/add` rather than pretending. To switch a static
+deployment on **without a rebuild**, set the same public values on `window`
+before the bundle loads, in `index.html`:
+
+```html
+<script>
+  window.PSDKIT_FIREBASE_CONFIG = {
+    apiKey: '…', authDomain: '….firebaseapp.com', projectId: '…',
+    storageBucket: '….appspot.com', messagingSenderId: '…', appId: '…',
+  };
+</script>
+```
+
+These are the standard public Firebase web-config fields, not secrets.
+
 ### Optional local deploy helper
 - `VERCEL_TOKEN`
 
 ## Scripts
 
 - `npm run dev` — Vite dev server
-- `npm test` — jsdom smoke suite **plus** the text-fit audit (both must pass)
+- `npm test` — jsdom smoke suite, the community flow suite **plus** the audits (all must pass)
 - `npm run test:smoke` — jsdom smoke suite only
+- `npm run test:community` — publishes a tool end to end against an in-memory Firestore double
 - `npm run audit` — text-fit audit only
 - `npm run audit:tools` — deep tool auditor, `--mode=healthy|hostile`, `--only=<id>` to iterate on one tool
 - `npm run audit:browser` — **opt-in** real-Chromium audit, `--url=http://localhost:5173`
 - `npm run build` — generates sitemap/robots then builds production assets
 - `npm run preview` — preview the production build
+
+### Community tools troubleshooting
+
+A published tool can only be missing from a list if the read failed, so the reads
+no longer hide it. `src/firebase.js` returns `{ tools, error }` (and
+`{ tool, error }` for a single document) instead of `null`/`[]`, logs the real
+error with `console.error`, and `src/pages/community.js` turns a failure into a
+visible banner plus a one-time toast instead of three silent sample cards.
+
+| Symptom on screen | Meaning | Fix |
+|---|---|---|
+| `Publishing is disabled. Firebase is not configured — missing …` | no `VITE_FIREBASE_*` values in the build | set them in Vercel and redeploy, or set `window.PSDKIT_FIREBASE_CONFIG` |
+| `Community tools could not load … Firestore rules blocked this` | rules not deployed, or a collection is locked | Firebase console → Firestore → Rules, paste [`firestore.rules`](./firestore.rules) |
+| `… requires an index` | a composite index is missing for the query that just ran | open the `console.error` link, or `firebase deploy --only firestore:indexes` |
+| `Google sign-in did not complete` | provider off, or the domain is not authorised | Authentication → Sign-in method → Google; add the domain to Authorised domains |
+
+The profile's **My tools** query deliberately avoids a composite index: it filters
+on `authorUid` (an automatic single-field index) and sorts newest-first in memory.
+`firestore.indexes.json` still declares the `authorUid + createdAt` index for
+server-side and admin queries, but a fresh Firestore database works without it.
 
 ### What the audits check
 

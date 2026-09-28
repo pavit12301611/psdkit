@@ -546,11 +546,22 @@ await test('no page or tool renders markup as visible text', async () => {
   const { renderLearnPage } = await import('../src/pages/learn.js');
   const { renderHelpPage } = await import('../src/pages/help.js');
   const { renderNotFoundPage } = await import('../src/pages/notfound.js');
+  const { renderCommunityPage, renderSubmitPage } = await import('../src/pages/community.js');
   for (const [label, fn] of [['home', renderHome], ['learn', renderLearnPage], ['help', renderHelpPage], ['404', renderNotFoundPage]]) {
     host.innerHTML = '';
     fn(host, null);
     scan(host, label);
   }
+  /* The publish form's tip list once told authors to use "a <style> block" —
+     and because el() turns a string into a text node, the tag was painted on
+     the page as literal characters. */
+  host.innerHTML = '';
+  renderSubmitPage(host, null);
+  scan(host, 'community/add');
+  host.innerHTML = '';
+  renderCommunityPage(host);
+  await new Promise((r) => setTimeout(r, 30));
+  scan(host, 'community');
   host.innerHTML = '';
   renderToolsPage(host, null);
   scan(host, 'tools');

@@ -47,6 +47,7 @@ const PAGES = [
   ...['daily', 'internet', 'essentials', 'coding'].map((c) => ({ id: `tools/${c}`, hash: `#/tools/${c}` })),
   { id: 'learn', hash: '#/learn' },
   { id: 'community', hash: '#/community' },
+  { id: 'community (publish)', hash: '#/community/add' },
   { id: 'help', hash: '#/help' },
   { id: 'signin', hash: '#/signin' },
   { id: 'profile', hash: '#/profile' },
