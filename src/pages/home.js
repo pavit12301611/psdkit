@@ -33,7 +33,9 @@ export function renderHome(root) {
 
   /* ── HERO ── */
   const featured = ['qr-generator', 'json-format', 'password-gen'].map((id) => TOOL_MAP[id]).filter(Boolean);
+  const sceneCanvas = el('canvas.hero-canvas3d', { 'aria-hidden': 'true' });
   const hero = el('section.home-hero',
+    sceneCanvas,
     el('div.wrap.hero-grid',
       el('div.hero-copy',
         el('div.hero-kicker', el('span.hero-live-dot'), `${TOOLS.length} useful tools · Free to use`),
@@ -244,6 +246,16 @@ export function renderHome(root) {
     ),
   );
 
-  root.append(hero, recentSection, catSection, popularSection, stepsSection, learnSection, communitySection);
+  /* filter(Boolean): without recents `recentSection` is null, and appending
+     null paints the literal string "null" on the page */
+  root.append(...[hero, recentSection, catSection, popularSection, stepsSection, learnSection, communitySection].filter(Boolean));
+
+  /* 3D hero backdrop — lazy-loaded behind first paint and scroll-tied
+     (object rises / spins / fades as you scroll, in both themes).
+     Removes itself silently if WebGL is unavailable. */
+  import('../scene3d.js')
+    .then((m) => m.mountHeroScene?.(sceneCanvas))
+    .catch(() => { try { sceneCanvas.remove(); } catch { /* ignore */ } });
+
   renderFeaturedCommunityGrid(communityGrid, 3);
 }

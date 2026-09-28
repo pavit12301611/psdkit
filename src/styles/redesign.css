@@ -125,6 +125,14 @@ html[data-theme='dim'] .home-hero {
 }
 .hero-grid { display: grid; grid-template-columns: minmax(0, .92fr) minmax(min(450px, 100%), 1.08fr); gap: clamp(32px, 6vw, 84px); align-items: center; }
 .hero-grid > * { min-width: 0; }
+/* raw-WebGL 3D backdrop — sits behind every other hero layer */
+.hero-canvas3d {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  z-index: 0; pointer-events: none;
+  opacity: 0; transition: opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hero-canvas3d.ready { opacity: 1; }
+.home-hero > .wrap, .home-hero .hero-scroll-cue { position: relative; z-index: 1; }
 .hero-copy { max-width: 550px; padding: 18px 0 48px; min-width: 0; }
 .hero-copy > * { animation: riseIn 0.8s cubic-bezier(0.16,1,0.3,1) both; }
 .hero-copy > *:nth-child(1) { animation-delay: 0ms; }
