@@ -90,8 +90,8 @@ function routeMeta(parts) {
     description: 'Manage your community tools, favourites and activity on PSDKIT Pro.',
   };
   if (a === 'admin') return {
-    title: 'Admin — PSDKIT Pro',
-    description: 'Moderate reported community tools and feature the best submissions.',
+    title: 'Admin Control Center — PSDKIT Pro',
+    description: 'Full moderation control for the community toolbox: live stats, report queue, tool manager with bulk actions, inline editing and exports.',
   };
   if (a === 'help') return {
     title: 'Help & FAQ — PSDKIT Pro',

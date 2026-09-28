@@ -276,6 +276,10 @@ function normalizeTool(doc, ratingsMap = {}, reportsMap = {}) {
     reportCount: report.count,
     reportedByMe: report.mine || false,
     hidden: Boolean(data.hidden) || report.count >= 3,
+    /* The raw moderation flag before auto-hide joins in — the admin panel has
+       to tell "an admin hid this" from "three reports hid this", and only the
+       raw flag may be toggled back off without touching the reports. */
+    hiddenFlag: Boolean(data.hidden),
   };
 }
 
@@ -531,6 +535,42 @@ export async function featureCommunityTool(id, featured = true) {
     await db.collection(COLLECTION).doc(id).update({ featured: !!featured, updatedAt: Date.now() });
   } catch (error) {
     reportFirestore('feature', error);
+    throw new Error(friendlyError(error));
+  }
+}
+
+/**
+ * Admin: clear one report, or every report filed against a tool.
+ *
+ * firestore.rules lets an admin delete report documents but nobody else —
+ * this is what makes the moderation queue emptyable. Without it a tool that
+ * auto-hided at three reports stayed flagged forever, because reports could
+ * only ever be added.
+ *
+ * The query filters on `toolId` alone, so Firestore's automatic single-field
+ * index covers it — no composite index required.
+ *
+ * @param {string} toolId whose reports to dismiss
+ * @param {string|null} [reportId] dismiss just this one; null clears them all
+ * @returns {Promise<number>} how many report documents were removed
+ */
+export async function dismissToolReports(toolId, reportId = null) {
+  if (!firebaseReady) throw new Error(NOT_CONFIGURED);
+  if (!toolId) throw new Error('No tool selected');
+  await init();
+  try {
+    let ids = reportId ? [reportId] : [];
+    if (!ids.length) {
+      const snap = await db.collection(REPORTS).where('toolId', '==', toolId).get();
+      ids = snap.docs.map((doc) => doc.id);
+    }
+    if (ids.length) {
+      await Promise.all(ids.map((id) => db.collection(REPORTS).doc(id).delete()));
+    }
+    clearStatus('dismiss reports');
+    return ids.length;
+  } catch (error) {
+    reportFirestore('dismiss reports', error);
     throw new Error(friendlyError(error));
   }
 }

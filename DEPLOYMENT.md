@@ -118,6 +118,12 @@ To make yourself an admin:
 
 The document can be empty; only the UID/doc id matters.
 
+That access unlocks the full `#/admin` control center: dashboard stats, the
+report queue (with dismiss — reports can otherwise never be cleared), bulk
+feature · hide · delete, and inline editing of any community tool's metadata,
+flags, run counter and code. `firestore.rules` is what enforces these rights,
+so keep it published alongside deploys.
+
 ---
 
 ## Step 5 — What works before keys exist?

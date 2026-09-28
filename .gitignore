@@ -6,3 +6,9 @@ dist
 !.env.example
 .vercel
 *.log
+
+# Rust (psdkit-fft)
+target/
+
+# generated screenshots / debug artifacts
+shots/
