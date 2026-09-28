@@ -1,0 +1,10 @@
+[package]
+name = "psdkit-fft"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+description = "Dependency-free radix-2 FFT: FftPlan, FftGroup abstraction, scratch buffers and Vec helpers"
+license = "MIT OR Apache-2.0"
+
+# Intentionally zero dependencies: the crate must build fully offline.
+[dependencies]
