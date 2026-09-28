@@ -325,6 +325,26 @@ await test('el() assigns value/checked as DOM properties', async () => {
   if (sel.value !== 'b') throw new Error('option selected was not applied');
 });
 
+await test('el() merges the class attribute with the selector classes', async () => {
+  /* Assigning `class` used to *replace* the class list, so `el('button.chip',
+     { class: '' })` produced a button with no class at all. The category
+     filters, the favourite stars and the rating stars all lost their styling
+     that way, and `.chip` / `.fav-btn` never matched anything in the CSS. */
+  const { el } = await import('../src/ui.js');
+  const active = el('button.chip', { class: 'active' });
+  if (!active.classList.contains('chip')) throw new Error('the selector class was dropped');
+  if (!active.classList.contains('active')) throw new Error('the attribute class was dropped');
+  const inactive = el('button.chip', { class: '' });
+  if (!inactive.classList.contains('chip')) throw new Error('an empty class attribute wiped the selector class');
+  const multi = el('span.badge', { class: 'a b' });
+  if (!multi.classList.contains('badge') || !multi.classList.contains('a') || !multi.classList.contains('b')) {
+    throw new Error(`multi-class merge failed: "${multi.className}"`);
+  }
+  /* a tag with no selector classes still gets its attribute class */
+  const plain = el('div', { class: 't-icon tile-sky' });
+  if (plain.className !== 't-icon tile-sky') throw new Error(`plain class assignment failed: "${plain.className}"`);
+});
+
 await test('CSV viewer renders an editable table in a scroll wrapper', async () => {
   const { getTool } = await import('../src/tools/index.js');
   const host = document.createElement('div');

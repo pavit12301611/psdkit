@@ -3,7 +3,13 @@ import { el, debounce, toast, copyText } from '../ui.js';
 import { icon } from '../icons.js';
 import { CATEGORIES, TOOLS, toolsByCat, searchTools, TOOL_MAP, getTool } from '../tools/index.js';
 import { getFavourites, toggleFavourite, isFavourite, pushRecentTool, getRecentTools, pushRecentSearch, getRecentSearches } from '../prefs.js';
+import { fetchCommunityTools, communityCatalogueCard, matchesCommunityQuery, dataProblemNote } from './community.js';
 import { t } from '../data/i18n.js';
+
+/* The catalogue is a fixed set of built-in tools, but the community publishes
+   into the same place. It gets its own chip so nobody has to guess where a
+   published tool went. */
+const COMMUNITY_CAT = 'community';
 
 function favouriteButton(toolId, { large = false, onChange } = {}) {
   const btn = el('button.fav-btn', {
@@ -68,7 +74,8 @@ function contextualAiChips(tool) {
 
 /* ───────── Browser page: #/tools and #/tools/:cat ───────── */
 export function renderToolsPage(root, catId = null) {
-  let activeCat = catId && CATEGORIES.some((c) => c.id === catId) ? catId : 'all';
+  const isKnownCat = (id) => id === COMMUNITY_CAT || CATEGORIES.some((c) => c.id === id);
+  let activeCat = isKnownCat(catId) ? catId : 'all';
   let query = '';
 
   const grid = el('div.grid.grid-3');
@@ -81,6 +88,20 @@ export function renderToolsPage(root, catId = null) {
     placeholder: t('smartSearchHint'),
     'data-search-input': '1',
   });
+
+  /* Live community data, fetched once per visit and re-rendered on arrival. */
+  let community = { tools: [], live: false, error: null, configured: true, loaded: false };
+  let communityPromise = null;
+  const loadCommunity = (force = false) => {
+    if (communityPromise && !force) return communityPromise;
+    communityPromise = fetchCommunityTools({ sort: 'latest' }).then((result) => {
+      community = { ...result, loaded: true };
+      renderChips();
+      renderGrid();
+      return result;
+    });
+    return communityPromise;
+  };
 
   const renderRecentSearches = () => {
     const history = getRecentSearches();
@@ -96,12 +117,53 @@ export function renderToolsPage(root, catId = null) {
     })));
   };
 
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+  const renderCommunityOnly = () => {
+    grid.innerHTML = '';
+    if (!community.loaded) {
+      countEl.textContent = 'Loading community tools…';
+      grid.append(el('div.skeleton', { style: { gridColumn: '1 / -1', height: '120px' } }));
+      return;
+    }
+    if (community.error) {
+      countEl.textContent = 'Community tools unavailable';
+      grid.append(el('div', { style: { gridColumn: '1 / -1' } }, dataProblemNote(community.error)));
+      return;
+    }
+    if (!community.configured) {
+      countEl.textContent = 'Community publishing is not connected';
+      grid.append(el('div.empty-state', { style: { gridColumn: '1 / -1' } },
+        el('div', { html: icon('users', 26) }),
+        el('div', { style: { marginTop: '10px', fontWeight: 700 }, text: 'No community tools here yet' }),
+        el('div', { style: { fontSize: '13.5px', marginTop: '6px' }, text: 'Community tools appear here once Firebase is connected — see DEPLOYMENT.md.' }),
+        el('a.btn.btn-accent', { style: { marginTop: '16px' }, href: '#/community', text: t('community') }),
+      ));
+      return;
+    }
+    countEl.textContent = `${plural(community.tools.length, 'community tool')} · newest first`;
+    if (!community.tools.length) {
+      grid.append(el('div.empty-state', { style: { gridColumn: '1 / -1' } },
+        el('div', { html: icon('sparkles', 26) }),
+        el('div', { style: { marginTop: '10px', fontWeight: 700 }, text: 'Nobody has published a tool yet' }),
+        el('div', { style: { fontSize: '13.5px', marginTop: '6px' }, text: 'Be the first — your tool shows up here with your name on it.' }),
+        el('a.btn.btn-accent', { style: { marginTop: '16px' }, href: '#/community/add', text: t('publishATool') }),
+      ));
+      return;
+    }
+    grid.append(...community.tools.map((tool) => communityCatalogueCard(tool, { onRefresh: () => loadCommunity(true) })));
+  };
+
   const renderGrid = () => {
+    if (activeCat === COMMUNITY_CAT && !query) return renderCommunityOnly();
     let list = query ? searchTools(query) : activeCat === 'all' ? TOOLS : toolsByCat(activeCat);
     if (query && activeCat !== 'all') list = list.filter((tool) => tool.cat === activeCat);
+    /* Searching also looks at the community, so a published tool is findable
+       by its own name instead of being hidden behind a chip. */
+    const extra = query ? community.tools.filter((tool) => matchesCommunityQuery(tool, query)) : [];
     grid.innerHTML = '';
-    countEl.textContent = `${list.length} tool${list.length === 1 ? '' : 's'}${query ? ` matching “${query}”` : ''}`;
-    if (!list.length) {
+    countEl.textContent = `${plural(list.length + extra.length, 'tool')}${query ? ` matching “${query}”` : ''}`;
+    if (!list.length && !extra.length) {
       const empty = el('div.empty-state', { style: { gridColumn: '1 / -1' } },
         el('div', { html: icon('search', 28) }),
         el('div', { style: { marginTop: '10px', fontWeight: 700 }, text: t('noResults') }),
@@ -111,7 +173,12 @@ export function renderToolsPage(root, catId = null) {
       grid.append(empty);
       return;
     }
-    grid.append(...list.map((tool) => toolCard(tool, { onFavouriteChange: () => { renderFavourites(); renderRecent(); } })));
+    if (list.length) grid.append(...list.map((tool) => toolCard(tool, { onFavouriteChange: () => { renderFavourites(); renderRecent(); } })));
+    if (extra.length) {
+      grid.append(el('div', { style: { gridColumn: '1 / -1', marginTop: list.length ? '18px' : '0' } },
+        el('div.field-hint', { text: `From the ${t('community').toLowerCase()} — published by members` })));
+      grid.append(...extra.map((tool) => communityCatalogueCard(tool, { onRefresh: () => loadCommunity(true) })));
+    }
   };
 
   const renderFavourites = () => {
@@ -141,20 +208,31 @@ export function renderToolsPage(root, catId = null) {
   };
 
   const chips = el('div.cat-chips');
-  [['all', t('allTools'), 'grid'], ...CATEGORIES.map((c) => [c.id, `${c.short} (${toolsByCat(c.id).length})`, c.icon])].forEach(([id, label, ic]) => {
-    const chip = el('button.chip', {
-      class: id === activeCat ? 'active' : '',
-      dataset: { cat: id },
-      html: `${icon(ic, 14)} ${label}`,
-      onclick: () => {
-        activeCat = id;
-        chips.querySelectorAll('.chip').forEach((item) => item.classList.toggle('active', item.dataset.cat === id));
-        renderGrid();
-        history.replaceState(null, '', id === 'all' ? '#/tools' : `#/tools/${id}`);
-      },
-    });
-    chips.append(chip);
-  });
+  const selectCat = (id) => {
+    activeCat = id;
+    chips.querySelectorAll('.chip').forEach((item) => item.classList.toggle('active', item.dataset.cat === id));
+    renderGrid();
+    history.replaceState(null, '', id === 'all' ? '#/tools' : `#/tools/${id}`);
+  };
+
+  function renderChips() {
+    chips.innerHTML = '';
+    const entries = [
+      ['all', t('allTools'), 'grid'],
+      ...CATEGORIES.map((c) => [c.id, `${c.short} (${toolsByCat(c.id).length})`, c.icon]),
+      /* The count is whatever Firestore holds right now, so it is re-rendered
+         when the read lands rather than baked in. */
+      [COMMUNITY_CAT, `${t('community')}${community.loaded ? ` (${community.tools.length})` : ''}`, 'users'],
+    ];
+    for (const [id, label, ic] of entries) {
+      chips.append(el('button.chip', {
+        class: id === activeCat ? 'active' : '',
+        dataset: { cat: id },
+        html: `${icon(ic, 14)} ${label}`,
+        onclick: () => selectCat(id),
+      }));
+    }
+  }
 
   searchInput.addEventListener('input', debounce(() => {
     query = searchInput.value.trim();
@@ -172,7 +250,7 @@ export function renderToolsPage(root, catId = null) {
         el('div.wrap',
           el('div.breadcrumb', el('a', { href: '#/', text: 'Home' }), el('span.sep', { text: '/' }), el('span', { text: 'Tools' })),
           el('h1.display', { style: { fontSize: 'clamp(32px,5vw,48px)', margin: '14px 0 10px' }, html: 'The <em>Toolkit</em>' }),
-          el('p.lede', { text: `${TOOLS.length} free tools — with favourites, recent history, typo-tolerant search and an assistant that can point you to the right one.` }),
+          el('p.lede', { text: `${TOOLS.length} free tools — with favourites, recent history, typo-tolerant search and an assistant that can point you to the right one. The ${t('community').toLowerCase()} chip lists tools members have published.` }),
         ),
       ),
       el('div.browser-bar', el('div.wrap',
@@ -188,10 +266,13 @@ export function renderToolsPage(root, catId = null) {
     ),
   );
 
+  renderChips();
   renderFavourites();
   renderRecent();
   renderRecentSearches();
   renderGrid();
+  /* After renderChips/renderGrid exist, so the first arrival can re-draw. */
+  loadCommunity();
   try {
     if (sessionStorage.getItem('psdkit_focus_search') === '1') {
       sessionStorage.removeItem('psdkit_focus_search');

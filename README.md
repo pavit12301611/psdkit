@@ -28,6 +28,10 @@ Counts are derived from `src/data/catalog.js` at runtime (`TOOL_COUNT`), and a t
   - typo-tolerant search, recent search chips, `/` and `Ctrl+K`
 - **Community toolbox**
   - publish, edit, delete, rate, report
+  - a **Community** filter inside the Tools catalogue, crediting the creator on
+    every card (name, avatar, and the author's uid on hover) — no run or rating
+    counters there; those live in the tool's own modal
+  - community tools are also returned by the Tools search box, labelled as such
   - trending sort by runs
   - auto-hide after 3+ reports
   - homepage live community picks with built-in fallback samples

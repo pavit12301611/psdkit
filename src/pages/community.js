@@ -82,13 +82,20 @@ onCommunityStatus((status) => {
   if (status && !status.ok) announceProblem(status);
 });
 
-/** The red banner that replaces the old "everything is fine" silence. */
-function dataProblemNote(error) {
+/**
+ * The banner that replaces the old "everything is fine" silence.
+ * `samples` only when the fallback demos really are on screen — the Tools
+ * catalogue must not claim a failed read produced the tools below it.
+ */
+export function dataProblemNote(error, { samples = false } = {}) {
+  const tail = samples
+    ? 'Built-in samples are shown below — anything you published is still saved in Firestore.'
+    : 'The list below stays empty rather than showing made-up entries. Anything you published is still saved in Firestore.';
   return el('div.note', { style: { marginBottom: '22px' } },
     el('div', { html: icon('info', 17) }),
     el('span', {},
       el('strong', { text: 'Community tools could not load. ' }),
-      el('span', { text: `${error?.message || 'Firestore request failed.'} Built-in samples are shown below — anything you published is still saved in Firestore.` }),
+      el('span', { text: `${error?.message || 'Firestore request failed.'} ${tail}` }),
     ),
   );
 }
@@ -267,23 +274,73 @@ export function openToolModal(tool, { onRefresh } = {}) {
 }
 
 /**
- * @returns {Promise<{tools: object[], live: boolean, error: Error|null}>}
+ * @param {object} opts
+ * @param {'latest'|'trending'} [opts.sort]
+ * @param {boolean} [opts.includeHidden]
+ * @param {boolean} [opts.samplesOnError] the Community page falls back to the
+ *   built-in demos; the Tools catalogue must never do that, because there a
+ *   fabricated card would sit next to the real built-in ones with no label.
+ * @returns {Promise<{tools: object[], live: boolean, error: Error|null, configured: boolean}>}
  * `live` is false only when the read failed or Firebase is not configured —
  * that is the difference between "here are your tools" and "here are three
  * demos, sorry". An empty live list is passed through as an empty list.
  */
-async function loadTools({ sort = 'latest', includeHidden = false } = {}) {
-  if (!firebaseReady) return { tools: SAMPLE_TOOLS, live: false, error: null };
+export async function fetchCommunityTools({ sort = 'latest', includeHidden = false, samplesOnError = false } = {}) {
+  if (!firebaseReady) {
+    return { tools: samplesOnError ? SAMPLE_TOOLS : [], live: false, error: null, configured: false };
+  }
   const { tools, error } = await listCommunityTools({ sort, includeHidden });
   if (error || !tools) {
     announceProblem(error);
-    return { tools: SAMPLE_TOOLS, live: false, error: error || new Error(friendlyErrorText()) };
+    return {
+      tools: samplesOnError ? SAMPLE_TOOLS : [],
+      live: false,
+      error: error || new Error(friendlyErrorText()),
+      configured: true,
+    };
   }
-  return { tools: reconcilePending(tools, sort), live: true, error: null };
+  return { tools: reconcilePending(tools, sort), live: true, error: null, configured: true };
 }
+
+const loadTools = (opts) => fetchCommunityTools({ ...opts, samplesOnError: true });
 
 function friendlyErrorText() {
   return firebaseConfigProblem || 'Firestore request failed.';
+}
+
+/**
+ * Catalogue variant of a community card, used by the Tools page.
+ * Attribution only — no run counter, no rating tally. Those live in the modal,
+ * where they mean something, and a leaderboard column is not what a catalogue
+ * listing is for. The creator's Firebase uid rides along on the tooltip.
+ */
+export function communityCatalogueCard(tool, { onRefresh } = {}) {
+  const sample = isSampleTool(tool);
+  return el('div.card.card-hover.tool-card', {
+    onclick: () => openToolModal(tool, { onRefresh }),
+  },
+  el('div.t-icon.tile-sand', { html: icon('sparkles', 21) }),
+  el('div.row', { style: { gap: '8px', flexWrap: 'wrap' } },
+    el('span.badge.badge-free', { text: sample ? 'Sample' : t('community') }),
+    el('span.field-hint', { text: tool.category || 'General' }),
+  ),
+  el('div.t-name', { text: tool.name }),
+  el('div.t-desc', { text: tool.description }),
+  el('div.author-chip', {
+    style: { marginTop: '2px' },
+    title: `Published by ${tool.authorName || 'Anonymous'}${tool.authorUid ? ` · id ${tool.authorUid}` : ''}`,
+  },
+  createAvatar({ displayName: tool.authorName, photoURL: tool.authorPhotoURL }, 24),
+  el('span', { text: `by ${tool.authorName || 'Anonymous'}` })),
+  el('div.t-go', { html: `Open ${icon('arrowRight', 13)}` }));
+}
+
+/** Free-text match used when the Tools search box also looks at community tools. */
+export function matchesCommunityQuery(tool, query) {
+  const needle = String(query || '').trim().toLowerCase();
+  if (!needle) return false;
+  return [tool.name, tool.description, tool.category, tool.authorName]
+    .some((field) => String(field || '').toLowerCase().includes(needle));
 }
 
 export async function renderFeaturedCommunityGrid(host, limit = 3) {
@@ -368,7 +425,7 @@ export function renderCommunityPage(root) {
     el('div.wrap',
       el('div.note', { style: { marginBottom: '22px' } },
         el('div', { html: `${icon('shield', 17)}` }),
-        el('span', { html: firebaseReady ? 'Community tools run inside a locked sandbox. Read the code before using anything — just like open-source software. Yours show up here on the Community page and on your profile — the main Tools catalogue is a fixed built-in set.' : 'Showing built-in sample tools. Connect Firebase to enable live publishing, ratings and moderation.' }),
+        el('span', { html: firebaseReady ? 'Community tools run inside a locked sandbox. Read the code before using anything — just like open-source software. Yours show up here, on your profile, and under the Community filter in the Tools catalogue.' : 'Showing built-in sample tools. Connect Firebase to enable live publishing, ratings and moderation.' }),
       ),
       problemSlot,
       el('div.row-between', { style: { marginBottom: '16px', alignItems: 'center' } }, status, sortToggle),

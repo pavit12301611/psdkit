@@ -44,6 +44,7 @@ const NET_LEVEL = /ERR_CONNECTION_CLOSED|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISC
 const PAGES = [
   { id: 'home', hash: '#/' },
   { id: 'tools (all)', hash: '#/tools' },
+  { id: 'tools (community)', hash: '#/tools/community' },
   ...['daily', 'internet', 'essentials', 'coding'].map((c) => ({ id: `tools/${c}`, hash: `#/tools/${c}` })),
   { id: 'learn', hash: '#/learn' },
   { id: 'community', hash: '#/community' },

@@ -181,6 +181,7 @@ window.PSDKIT_APP = { getAuthUser: () => state.user };
 const fb = await import('../src/firebase.js');
 const community = await import('../src/pages/community.js');
 const profile = await import('../src/pages/profile.js');
+const toolsPage = await import('../src/pages/tools.js');
 
 /* ── the unconfigured build, in isolation ────────────────────────────── */
 
@@ -480,6 +481,90 @@ await test('an empty community says so instead of showing samples', async () => 
   await settle(60);
   if (/Word of the Day/.test(root.textContent)) throw new Error('samples were passed off as live tools');
   if (!/No community tools yet/.test(root.textContent)) throw new Error('no honest empty state');
+  root.remove();
+});
+
+/* ── the Tools catalogue ─────────────────────────────────────────────── */
+
+console.log('\n— Community tools in the Tools catalogue —');
+
+await test('the Community chip lists the published tool with its author', async () => {
+  reset();
+  state.user = USER;
+  await publishTool();
+  const root = host();
+  toolsPage.renderToolsPage(root, 'community');
+  await settle(80);
+  const chip = [...root.querySelectorAll('.cat-chips .chip')].find((c) => c.dataset.cat === 'community');
+  if (!chip) throw new Error('there is no Community chip in the Tools filter row');
+  if (!/Community \(1\)/.test(chip.textContent)) throw new Error(`chip count is stale: "${chip.textContent.trim()}"`);
+  const card = root.querySelector('.tool-card');
+  if (!card) throw new Error('no card rendered for the published tool');
+  if (!card.textContent.includes(PAYLOAD.name)) throw new Error('the card is missing the tool name');
+  /* The creator has to be identifiable, not just implied. */
+  if (!card.textContent.includes(`by ${USER.displayName}`)) throw new Error(`no author on the card: "${card.textContent}"`);
+  const chipEl = card.querySelector('.author-chip');
+  if (!chipEl) throw new Error('no author chip on the card');
+  if (!/user-pavit/.test(chipEl.getAttribute('title') || '')) {
+    throw new Error('the author Firebase uid is not exposed on the card');
+  }
+  root.remove();
+});
+
+await test('the catalogue card carries no run or rating counter', async () => {
+  const card = community.communityCatalogueCard({
+    id: 'x', name: 'n', description: 'd', category: 'Essentials', authorName: 'Pavit',
+    authorUid: 'u1', runs: 412, ratingAvg: 4.9, ratingCount: 27, createdAt: Date.now(),
+  });
+  if (/\b412\b/.test(card.textContent)) throw new Error('the run counter leaked into the catalogue');
+  if (/\b27\b/.test(card.textContent) || /4\.9/.test(card.textContent)) throw new Error('the rating tally leaked into the catalogue');
+  if (/runs/i.test(card.textContent)) throw new Error(`"runs" is showing on the card: "${card.textContent}"`);
+  /* …while the Community page card still reports them. */
+  const grid = community.communityCard({
+    id: 'x', name: 'n', description: 'd', category: 'Essentials', authorName: 'Pavit',
+    authorUid: 'u1', runs: 412, ratingAvg: 4.9, ratingCount: 27, createdAt: Date.now(),
+  });
+  if (!/412/.test(grid.textContent)) throw new Error('the Community page lost its run counter');
+});
+
+await test('searching the Tools page finds a community tool by name', async () => {
+  reset();
+  state.user = USER;
+  await publishTool();
+  const root = host();
+  toolsPage.renderToolsPage(root, null);
+  await settle(80);
+  const input = root.querySelector('[data-search-input]');
+  input.value = '3D QR Code';
+  input.dispatchEvent(new window.Event('input', { bubbles: true }));
+  await settle(260);
+  if (!root.textContent.includes(PAYLOAD.name)) throw new Error('the community tool did not appear in the search results');
+  if (!/from the community/i.test(root.textContent)) throw new Error('community results are not labelled');
+  root.remove();
+});
+
+await test('the catalogue never shows the built-in samples as if they were real', async () => {
+  reset();
+  state.user = USER;
+  const root = host();
+  toolsPage.renderToolsPage(root, 'community');
+  await settle(80);
+  if (/Word of the Day/.test(root.textContent)) throw new Error('a sample tool is sitting in the real catalogue');
+  if (!/Nobody has published a tool yet/.test(root.textContent)) throw new Error('no honest empty state for the Community chip');
+  root.remove();
+});
+
+await test('a failed community read leaves the catalogue empty, never fabricated', async () => {
+  reset();
+  state.user = USER;
+  await publishTool();
+  state.fail = new FakeError('permission-denied', 'Missing or insufficient permissions.');
+  const root = host();
+  toolsPage.renderToolsPage(root, 'community');
+  await settle(80);
+  state.fail = null;
+  if (!/could not load/i.test(root.textContent)) throw new Error('the Tools page hid the failure');
+  if (/Word of the Day/.test(root.textContent)) throw new Error('it fell back to samples inside the real catalogue');
   root.remove();
 });
 

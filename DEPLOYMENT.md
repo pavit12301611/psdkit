@@ -159,9 +159,10 @@ samples — a banner names the cause (rules / index / config) and the full error
 in the browser console under `[psdkit] Firestore …`. The troubleshooting table in
 [README.md](./README.md#community-tools-troubleshooting) maps each banner to its fix.
 
-Remember that community tools live in three places only: `#/community`, the home
-page's community strip, and the author's profile. The `#/tools` catalogue is the
-fixed built-in set of tools and never lists community submissions.
+Remember that community tools show up in three places: `#/community`, the **Community**
+filter in the `#/tools` catalogue, and the author's profile — plus the home page's
+community strip. The catalogue card credits the creator and deliberately shows no run
+or rating counter; those live in the tool's own modal.
 
 ### D. PWA / SEO
 - Check `manifest.webmanifest` loads
